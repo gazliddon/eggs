@@ -23,6 +23,11 @@
   (get-num-of-elements [_])
   (get-attr-size [_]))
 
+(defprotocol IAttributeBuffer 
+  (enable-array! [_])
+  (disable-array! [_])
+  (bind-array! [_]))
+
 
 (defprotocol IVertDef 
   (get-attributes [_])

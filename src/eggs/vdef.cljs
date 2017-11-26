@@ -1,7 +1,8 @@
 (ns eggs.vdef
   (:require
     [eggs.protocols :as p]
-      
+    [cljs.spec.test.alpha :as stest ]
+
     [thi.ng.geom.vector :as v :refer [vec2 vec3 ]]
 
     [util.vec4 :refer [vec4]]
@@ -23,6 +24,31 @@
 
 (enable-console-print!)
 
+;; {{{ Some specs
+
+  (defn unsigned-integer? [i] (and (integer? i) (>= 0)))
+
+  (defn array-buffer? [i] (= (type i) js/ArrayBuffer))
+
+  (s/def ::normalized? boolean?)
+  (s/def ::size unsigned-integer?)
+  (s/def ::stride unsigned-integer?)
+  (s/def ::type keyword?)
+  (s/def ::offset unsigned-integer?)
+  (s/def ::gl-type unsigned-integer?)
+  (s/def ::gl-vert-attr-ptr fn?)
+  (s/def ::attr-buffer array-buffer?)
+
+  (s/def ::attr-spec (s/keys :req-un [::normalized?
+                                      ::size
+                                      ::stride
+                                      ::offset
+                                      ::gl-type
+                                      ::gl-vert-attr-ptr 
+                                      ::buffer]))
+
+;; }}}
+
 ;; {{{ TypeInfo
 
 (defrecord TypeInfo [size array elements offset type writer reader ]
@@ -35,14 +61,17 @@
   (get-num-of-elements [_] elements)
   (get-attr-size [_] (* elements size)))
 
-(defn ivert-attrib-ptr [gl loc size type _ stride offset]
+(defn ivert-attrib-ptr [gl loc size type normalized? stride offset]
   (.vertexAttribIPointer gl loc size type stride offset)  )
+
+(defn vert-attrib-ptr [gl loc size type normalized? stride offset]
+  (.vertexAttribPointer gl loc size type normalized? stride offset)  )
 
 (def type-info-defaults
   {:elements 1 
    :array js/Float32Array
    :gl-type glc/float
-   :gl-vert-attr-ptr :TBD
+   :gl-vert-attr-ptr vert-attrib-ptr
    :reader (fn [buff n ] (aget buff n))
    :writer (fn [buff n v] (aset buff n v)) })
 
@@ -51,7 +80,6 @@
         attr-spec {:type (:gl-type hsh)
                    :normalized? false
                    :size (:elements hsh) } ]
-
 
     (->
       (assoc hsh :type type-id :attr-spec attr-spec)
@@ -79,7 +107,11 @@
 
 (def type-info 
   {:float    {:size 4 } 
-   :int      {:size 4 :array js/Int32Array  :gl-type glc/int 
+
+   :int      {:size 4 :array js/Int32Array  :gl-type glc/int
+              :gl-vert-attr-ptr ivert-attrib-ptr  }
+
+   :uint      {:size 4 :array js/Uint32Array  :gl-type glc/unsigned-int
               :gl-vert-attr-ptr ivert-attrib-ptr  }
 
    :vec2     {:size 4 
@@ -181,25 +213,25 @@
     this))
 
 (defn mk-attr-spec [attr-def vert-def array-buffer]
-  {:offset (p/get-offset attr-def) 
-   :type (:gl-type attr-def)
-   :buffer array-buffer
-   :normalized? false
-   :size (p/get-num-of-elements attr-def) 
-   :stride (p/get-vert-size vert-def) })
+  (merge 
+    (select-keys attr-def [:type :offset :gl-vert-attr-ptr :gl-type])
+    {:buffer array-buffer
+     :normalized? false
+     :size (p/get-num-of-elements attr-def) 
+     :stride (p/get-vert-size vert-def) }))
 
 (defn mk-attr-bufffer [{:keys [reader writer] :as attr-def} vert-def array-buffer n]
   (let [{:keys [stride offset]:as attr-spec} (mk-attr-spec attr-def vert-def array-buffer)
         element-size (p/get-element-size attr-def) ]
 
     (map->AttributeBuffer 
-      {:attr-spec attr-spec
-       :attr-def attr-def 
-       :writer (:writer attr-def) 
-       :reader (:reader attr-def)
-       :stride-elems (/ stride element-size) 
-       :num-of-elems n 
-       :buffer-view (p/mk-array attr-def array-buffer n)})))
+      (merge 
+        (select-keys attr-def [:reader :writer])
+        {:attr-spec attr-spec
+         :attr-def attr-def 
+         :stride-elems (/ stride element-size) 
+         :num-of-elems n 
+         :buffer-view (p/mk-array attr-def array-buffer n)}  ))))
 
 ;; }}}
 

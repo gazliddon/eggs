@@ -18,7 +18,8 @@
                  [com.taoensso/truss "1.5.0"]
                  [prismatic/plumbing "0.5.5"]
                  [com.stuartsierra/component "0.3.2"]
-                 [com.taoensso/timbre "4.10.0"]  ]
+                 [com.taoensso/timbre "4.10.0"]  
+                 [org.clojure/test.check "0.10.0-alpha2"] ]
 
   :plugins [[lein-figwheel "0.5.14"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]

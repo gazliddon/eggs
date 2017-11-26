@@ -1,6 +1,7 @@
 (ns eggs.core
-  (:require-macros
+  ; {{{ Requires
 
+  (:require-macros
     [cljs.core.async.macros :refer [go go-loop ]] 
     [thi.ng.math.macros :as mm])
 
@@ -37,6 +38,8 @@
 
     [eggs.pad :as joypads]
 
+    [cljs.spec.alpha :as s ]
+
     [thi.ng.geom.core :as g]
     [thi.ng.geom.types]
     [thi.ng.math.core :as m :refer [PI HALF_PI TWO_PI]]
@@ -52,9 +55,13 @@
     [thi.ng.geom.gl.camera :as cam]
     [thi.ng.geom.gl.shaders :as shaders] 
     [thi.ng.geom.gl.webgl.constants :as glc]
-    [thi.ng.geom.gl.webgl.animator :as anim]))
+    [thi.ng.geom.gl.webgl.animator :as anim])
+  
+  ;; }}}
+  )
 
 (enable-console-print!)
+
 ;;;{{{  Players and stuff
 (defn spin
   [t]
@@ -393,44 +400,45 @@
 
 ;; {{{ Stolen Attribute enabling / disabling
 
-(defn attrib-ptr 
-  "set the attrib ptr - stupid different path for uints"
-  [^WebGLRenderingContext gl loc size type normalized? stride offset] 
+(s/check-asserts true)
+
+(defn set-attribute! [^WebGLRenderingContext gl attr-spec ]
   (do 
-    (.enableVertexAttribArray gl loc)
-    (if (= type glc/int)
-      (t/warn (str "int attrs TBD"))
-      (.vertexAttribPointer gl loc size type normalized? stride offset))))
+    (s/assert ::vdef/attr-spec attr-spec)
 
-(defn set-attribute
-  [^WebGLRenderingContext gl shader id attrib-spec]
-
-  (let [{:keys [buffer stride size type normalized? offset loc]} attrib-spec]
-    (if-let [loc (-> shader (get :attribs) (get id))]
+    (let [{:keys [gl-vert-attr-ptr buffer stride size type normalized? offset loc] } attr-spec] 
       (doto gl
+        (.enableVertexAttribArray gl loc)
         (.bindBuffer glc/array-buffer buffer)
-        (attrib-ptr loc size glc/float normalized? stride offset))
+        (gl-vert-attr-ptr loc size type normalized? stride offset)))))
 
-      (t/warn (str "Unknown shader attribute: " id)))))
+(defn disable-attribute!
+  [^WebGLRenderingContext gl {:keys [loc] :as attr-spec}]
+  (do 
+    (s/assert ::vdef/attr-spec attr-spec)
+    (.disableVertexAttribArray gl loc) ))
 
-(defn disable-attribute
-  [^WebGLRenderingContext gl shader id]
-  (if-let [loc (-> shader (get :attribs) (get id))]
-    (.disableVertexAttribArray gl loc gl)
-    (t/warn (str "Unknown shader attribute: " id))))
+(defn set-attributes! [gl specs]
+  (doseq [[id attr-spec] specs]
+    (set-attribute! gl attr-spec)))
+
+(defn disable-attributes! [gl specs]
+  (doseq [[id attr-spec] specs]
+    (disable-attribute! gl attr-spec)))
 
 ;; }}}
 
 (defn update-attr-specs 
-
   "add loc info to the attr specs"
   [attr-specs shader-attrs]
   (->
     (fn [acc id loc]
       (if-let [attr-spec (get id attr-specs)]
-        (assoc acc id (assoc attr-spec :loc loc))
+        (let [new-spec (assoc attr-spec :loc loc)]
+          (s/assert ::vdef/attr-spec new-spec)
+          (assoc acc id new-spec))
         acc))
-    (reduce-kv {} shader-attrs)))
+    (reduce-kv {}shader-attrs)))
 
 (defn get-specs [vert-buffer]
   (->
@@ -440,6 +448,7 @@
 
 (comment 
   (do 
+
     (def line-vdef (:attribs line-shader-spec))
     (def vb (vdef/mk-vert-buffer line-vdef 100))
     (def shader-ch (async-load-shader line-shader-spec) )
@@ -447,17 +456,10 @@
     (go 
       (let [gl gl-ctx
             shader (async/<! shader-ch) 
-            shader-attrs (:attrs shader) ]
+            shader-attrs (:attrs shader) 
+            specs (get-specs vb)]
 
-        (t/info "getting specs")
-
-        (pprint 
-          (get-specs vb))
-
-
-        (t/info "shader loaded")
-
-        ))))
+        (t/info "shader loaded")))))
 
 ;;}}}
 
