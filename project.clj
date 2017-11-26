@@ -14,7 +14,7 @@
   :dependencies [[org.clojure/clojure "1.9.0-beta4"]
                  [org.clojure/clojurescript "1.9.946"]
                  [org.clojure/core.async  "0.3.443"]
-                 [thi.ng/geom "0.0.1178-SNAPSHOT"]
+                 [thi.ng/geom "0.0.1191-dirty"]
                  [com.taoensso/truss "1.5.0"]
                  [prismatic/plumbing "0.5.5"]
                  [com.stuartsierra/component "0.3.2"]
