@@ -462,4 +462,4 @@
 
 ;;}}}
 
-;; vim:set fdm=marker :
+;; vim:set fdm=marker : set nospell :
