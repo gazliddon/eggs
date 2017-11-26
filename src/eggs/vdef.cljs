@@ -180,7 +180,7 @@
     (writer buffer-view (* n stride-elems) v)
     this))
 
-(defn mk-attr-spec [attr-def vert-def array-buffer]
+(defn mk-attr-spec [id attr-def vert-def array-buffer]
   {:offset (p/get-offset attr-def) 
    :type (:gl-type attr-def)
    :buffer array-buffer

@@ -421,37 +421,42 @@
 
 ;; }}}
 
-(defn mk-attrib-specs [gl {:keys [vert-def attr-buffers] :as vert-buffer} shader]
+(defn update-attr-specs 
 
-  (let [ base-spec {:buffer      (p/get-array-buffer vert-buffer) 
-                    :stride      (p/get-vert-size vert-def)
-                    :normalized? false } ]
-    (->
-      (fn [res attrib-id loc]
-        (let [attr-buffer (get attr-buffers attrib-id)
-              attr-def (:attr-def attr-buffer)
+  "add loc info to the attr specs"
+  [attr-specs shader-attrs]
+  (->
+    (fn [acc id loc]
+      (if-let [attr-spec (get id attr-specs)]
+        (assoc acc id (assoc attr-spec :loc loc))
+        acc))
+    (reduce-kv {} shader-attrs)))
 
-              spec {:offset (p/get-offset attr-def)
-                    :type   glc/float 
-                    :size   (p/get-num-of-elements attr-def) 
-                    :loc    loc } ]
-
-          (assoc res attrib-id (merge base-spec spec))))
-
-      (reduce-kv {} (:attribs shader)))))
+(defn get-specs [vert-buffer]
+  (->
+    (fn [acc id v]
+      (assoc acc id (-> v :attr-spec)))
+    (reduce-kv {} (:attr-buffers vert-buffer))))
 
 (comment 
   (do 
+    
     (def line-vdef (:attribs line-shader-spec))
-    (def vert-buffer (vdef/mk-vert-buffer line-vdef 100))
+    (def vb (vdef/mk-vert-buffer line-vdef 100))
     (def shader-ch (async-load-shader line-shader-spec) )
 
     (go 
       (let [gl gl-ctx
-            shader (async/<! shader-ch) ]
+            shader (async/<! shader-ch) 
+            shader-attrs (:attrs shader) ]
+
+        (t/info "getting specs")
 
         (pprint 
-          (mk-attrib-specs gl vert-buffer shader))
+          (get-specs vb))
+
+
+        (t/info "shader loaded")
         ))
     ))
 
