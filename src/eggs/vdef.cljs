@@ -273,6 +273,11 @@
 
 (def memo-mk-vdef (memoize mk-vdef))
 
+(defn- get-specs [attr-buffers]
+  (->
+    (fn [acc id v] (assoc acc id (-> v :attr-spec)))
+    (reduce-kv {} attr-buffers)))
+
 (defn mk-vert-buffer [vert-info n]
   (let [vert-def (memo-mk-vdef vert-info )
         stride (p/get-vert-size vert-def)
@@ -288,7 +293,8 @@
     (map->VertBuffer {:attr-buffers attr-buffers
                       :vert-def vert-def 
                       :array-buffer array-buffer
-                      :num-of-verts n})))
+                      :num-of-verts n
+                      :attr-specs (get-specs attr-buffers ) })))
 ;; }}}
 
 ;; {{{ JS Utility Code

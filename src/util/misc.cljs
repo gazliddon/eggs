@@ -6,6 +6,10 @@
 (defn map-keys [func hsh ]
   (reduce-kv (fn [o k v] (assoc o k (func v)))  {} hsh))
 
+(defn map-kv [func hsh]
+  (reduce-kv (fn [acc k v]
+               (assoc acc k (func k v))) {} hsh))
+
 (defn ->pprint 
   ([v txt]
    (println txt)

@@ -34,7 +34,7 @@
 
     [util.vec :as V]
     [util.vec4 :refer [vec4]]
-    [util.misc :refer [js-log]]
+    [util.misc :refer [js-log map-kv]]
 
     [eggs.pad :as joypads]
 
@@ -75,15 +75,33 @@
     (-> mat/M44
     (g/translate v))))
 
-
 (defn draw-printable [ctx printable cam model-mat]
   (gl/draw-with-shader ctx (assoc-in (cam/apply printable cam)
                                      [:uniforms :model] model-mat)))
 
-(defn draw-frame! [ctx pos cam printable]
+(defn cos-01 [t phase speed]
+  (let [t (+ phase (* speed t) ) ]
+    (/ (+ 1.0 (Math/cos t)) 2.0)))
+
+(defn gl-clear! 
+  ([gl r g b a d]
+   (gl/clear-color-and-depth-buffer gl r g b a d))
+
+  ([gl r g b a]
+   (gl-clear! gl r g b a 1))
+
+  ([gl r g b]
+    (gl-clear! gl r g b 1 1)))
+
+(defn draw-frame! [ctx t pos cam printable]
   (let [ mat (xlate pos) ]
     (doto ctx
-      (gl/clear-color-and-depth-buffer 0 0 0 1 1)
+
+      (gl-clear!
+        (cos-01 t 0 3) 
+        (cos-01 t 1 1.3) 
+        (cos-01 t 2 -0.5))
+
       (draw-printable printable cam (xlate pos)))))
 
 ;; Draw stuff
@@ -227,13 +245,12 @@
       (let [proj (:proj cam)
             view (:view cam) ]
         (pt/update-uniforms! ctx :proj proj :view view)
-        (draw-frame! ctx (:pos @player) cam printable)))))
+        (draw-frame! ctx t (:pos @player) cam printable)))))
 
 (def pads (joypads/mk-pads))
 (defonce gl-window (glw/mk-gl-window "main"))
 (defonce gl-ctx (:ctx gl-window))
 (defonce camera (:cam gl-window))
-
 (defonce printable (pt/get-printable :quad))
 
 (def timer (timer/mk-timer))
@@ -246,8 +263,6 @@
       (fn [event] (method obj event))))
   obj)
 
-(defonce running (anim/animate (fn [t]
-                                 ( update-game! t gl-ctx camera pads printable))) )
 
 (defn on-js-reload [])
 
@@ -400,66 +415,57 @@
 
 ;; {{{ Stolen Attribute enabling / disabling
 
-(s/check-asserts true)
+(defn make-gl-vert-buffer! [{:keys [attr-specs] :as vert-buffer } gl {:keys [attrs] :as shader }]
+  (let [gl-buffer (.createBuffer gl)]
+    (assoc vert-buffer
+           ;; add a gl buffer
+           :gl-buffer gl-buffer
+           ;; buff attr specs w loc and buffer info
+           :attr-specs (-> (fn [k v]
+                             (assoc v :gl-buffer gl-buffer
+                                    :loc (get attrs k :attr-not-found)))
+                           (map-kv attr-specs)))))
 
-(defn set-attribute! [^WebGLRenderingContext gl attr-spec ]
-  (do 
-    (s/assert ::vdef/attr-spec attr-spec)
+(defprotocol IGLVertBuffer 
+  (make-active!  [this gl]))
 
-    (let [{:keys [gl-vert-attr-ptr buffer stride size type normalized? offset loc] } attr-spec] 
-      (doto gl
-        (.enableVertexAttribArray gl loc)
-        (.bindBuffer glc/array-buffer buffer)
-        (gl-vert-attr-ptr loc size type normalized? stride offset)))))
+(extend-type vdef/VertBuffer 
+  IGLVertBuffer
 
-(defn disable-attribute!
-  [^WebGLRenderingContext gl {:keys [loc] :as attr-spec}]
-  (do 
-    (s/assert ::vdef/attr-spec attr-spec)
-    (.disableVertexAttribArray gl loc) ))
+  (make-active! [{:keys [gl-buffer attr-specs] :as this} gl]
+    (do
+      (.bindBuffer gl glc/array-buffer gl-buffer)
 
-(defn set-attributes! [gl specs]
-  (doseq [[id attr-spec] specs]
-    (set-attribute! gl attr-spec)))
-
-(defn disable-attributes! [gl specs]
-  (doseq [[id attr-spec] specs]
-    (disable-attribute! gl attr-spec)))
-
+      (doseq [[id attr-spec] attr-specs]
+        (let [{:keys [gl-buffer gl-vert-attr-ptr buffer stride size type normalized? offset loc] } attr-spec] 
+          (doto gl
+            (.enableVertexAttribArray loc)
+            (gl-vert-attr-ptr loc size type normalized? stride offset)))))))
 ;; }}}
 
-(defn update-attr-specs 
-  "add loc info to the attr specs"
-  [attr-specs shader-attrs]
-  (->
-    (fn [acc id loc]
-      (if-let [attr-spec (get id attr-specs)]
-        (let [new-spec (assoc attr-spec :loc loc)]
-          (s/assert ::vdef/attr-spec new-spec)
-          (assoc acc id new-spec))
-        acc))
-    (reduce-kv {}shader-attrs)))
+(def shader-ch (async-load-shader line-shader-spec) )
 
-(defn get-specs [vert-buffer]
-  (->
-    (fn [acc id v]
-      (assoc acc id (-> v :attr-spec)))
-    (reduce-kv {} (:attr-buffers vert-buffer))))
 
-(comment 
-  (do 
+(defn doseq-idx [fun col]
+ (doseq [[idx v] (map-indexed vector col)]
+   (fun idx v)))
 
-    (def line-vdef (:attribs line-shader-spec))
-    (def vb (vdef/mk-vert-buffer line-vdef 100))
-    (def shader-ch (async-load-shader line-shader-spec) )
+(go 
+  (let [gl gl-ctx
+        shader (async/<! shader-ch) 
+        vb (-> (vdef/mk-vert-buffer (:attribs line-shader-spec) 100) 
+               (make-gl-vert-buffer! gl shader)) ]
 
-    (go 
-      (let [gl gl-ctx
-            shader (async/<! shader-ch) 
-            shader-attrs (:attrs shader) 
-            specs (get-specs vb)]
+    ;; set the buffer
+    (doseq-idx #(p/write-buffer! vb % %2) one-line)
 
-        (t/info "shader loaded")))))
+    ; (make-active! vb gl)
+
+    (anim/animate (fn [t]
+                    (update-game! t gl camera pads printable)))
+
+    (t/info "shader loaded")  
+    ))
 
 ;;}}}
 
