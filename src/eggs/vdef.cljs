@@ -12,6 +12,7 @@
 
     [cljs.pprint :refer [pprint]]
     [cljs.spec.alpha :as s]
+    [thi.ng.geom.gl.webgl.constants :as glc]
 
     [taoensso.truss :as truss :refer (have have! have?)]
     [thi.ng.dstruct.streams :as streams]
@@ -46,13 +47,15 @@
    :writer (fn [buff n v] (aset buff n v)) })
 
 (defn mk-type-info [type-id hsh]
-  (let [hsh (merged type-info-defaults hsh)
+  (let [hsh (merge type-info-defaults hsh)
         attr-spec {:type (:gl-type hsh)
                    :normalized? false
-                   :size (:elements hsh) } ])
-  (->
-    (assoc hsh :type id :attr-spec attr-spec)
-    (map->TypeInfo)))
+                   :size (:elements hsh) } ]
+
+
+    (->
+      (assoc hsh :type type-id :attr-spec attr-spec)
+      (map->TypeInfo))))
 
 ;; }}}
 
@@ -183,7 +186,7 @@
    :buffer array-buffer
    :normalized? false
    :size (p/get-num-of-elements attr-def) 
-   :stride stride })
+   :stride (p/get-vert-size vert-def) })
 
 (defn mk-attr-bufffer [{:keys [reader writer] :as attr-def} vert-def array-buffer n]
   (let [{:keys [stride offset]:as attr-spec} (mk-attr-spec attr-def vert-def array-buffer)
