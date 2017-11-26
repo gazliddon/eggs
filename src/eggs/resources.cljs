@@ -7,48 +7,16 @@
     [eggs.fetch :as f]
     [plumbing.core :refer (fnk sum)] 
     [plumbing.graph-async :refer [async-compile]]
-    [cljs.core.async :as async ]
+    [cljs.core.async :as a ]
     [plumbing.graph :as graph :refer [compile]] 
     [schema.core :as s]
+
+
+    [taoensso.timbre :as t
+      :refer-macros [log  trace  debug  info  warn  error  fatal  report
+                     logf tracef debugf infof warnf errorf fatalf reportf ]]
     )
   )
 
 (enable-console-print!)
-
-;; shader prg
-;; vs-text
-;; fs-text
-
-(def fetch-file-graph
-  (->
-    {:url (fnk[file] (str "shaders/" file) )
-     :file-text (fnk [url] (f/fetch url)) } 
-    async-compile))
-
-(defn fetch-file [file]
-  (fetch-file-graph {:file file}))
-
-(def fetch-files-graph
-  (->
-    {:load-chans (fnk [files] (map fetch-file files))
-     :loaded-files (fnk [load-chans]
-                        (async/into [] (async/merge load-chans) )) }  
-    async-compile ))
-
-(defn fetch-files [files]
-  (fetch-files-graph {:files ["line.vs" "line.fs"]}))
-
-(comment 
-  (go
-    (let [ch (fetch-files [ [ "line.vs" "line.fs" ] ]) ]
-      (do 
-        (println "result")
-        (println (async/<! ch))
-        )
-      )
-    ) 
-  )
-
-
-
 

@@ -440,7 +440,6 @@
 
 (comment 
   (do 
-    
     (def line-vdef (:attribs line-shader-spec))
     (def vb (vdef/mk-vert-buffer line-vdef 100))
     (def shader-ch (async-load-shader line-shader-spec) )
@@ -457,8 +456,8 @@
 
 
         (t/info "shader loaded")
-        ))
-    ))
+
+        ))))
 
 ;;}}}
 
