@@ -42,7 +42,7 @@
   {:elements 1 
    :array js/Float32Array
    :gl-type glc/float
-   :gl-vert-attr-ptr .vertexAttribPointer
+   :gl-vert-attr-ptr :TBD
    :reader (fn [buff n ] (aget buff n))
    :writer (fn [buff n v] (aset buff n v)) })
 
@@ -79,7 +79,7 @@
 
 (def type-info 
   {:float    {:size 4 } 
-   :int      {:size 4 :array js/Uint32Array  :gl-type glc/int 
+   :int      {:size 4 :array js/Int32Array  :gl-type glc/int 
               :gl-vert-attr-ptr ivert-attrib-ptr  }
 
    :vec2     {:size 4 
@@ -292,7 +292,7 @@
 
 
 (buff-js-array js/Float32Array js-count js-nth)
-(buff-js-array js/UInt32Array js-count js-nth)
+(buff-js-array js/Int32Array js-count js-nth)
 
 ;; }}}
 
@@ -312,7 +312,7 @@
 
     (defn log-buffer [id]
       (js-log (str "logging " (name id)))
-      (-> vb p/get-attr-buffers (get id)  :buffer-view js-log)
+      (-> vb p/get-attr-buffers (get id) pprint)
       (js-log "" )
       (js-log "" ))
 
@@ -323,8 +323,15 @@
                     :a_color0     (vec4 6 7 8 9)
                     :a_color1     (vec4 10 11 12 13)})
 
+    (pprint test-vert)
+
     (p/write-buffer! vb 0 test-vert)
-    (p/write-buffer! vb 1 test-vert)
-    (p/write-buffer! vb 3 test-vert)))
+
+    (pprint (p/read-buffer vb 0))
+
+    (println "Equality test" (= test-vert (p/read-buffer vb 0)))
+
+
+    ))
 
 ;;; }}}
