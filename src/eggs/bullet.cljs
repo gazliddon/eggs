@@ -1,0 +1,13 @@
+(ns eggs.bullet
+
+  (:require)
+  )
+
+
+
+;;{{{
+
+;; }}}
+
+
+
