@@ -59,11 +59,11 @@
   (get-num-of-elements [_] elements)
   (get-attr-size [_] (* elements size)))
 
-(defn ivert-attrib-ptr [gl loc size type normalized? stride offset]
-  (.vertexAttribIPointer gl loc size type stride offset)  )
+(defn ivert-attrib-ptr [gl loc size gl-type _ stride offset]
+  (.vertexAttribIPointer gl loc size gl-type stride offset)  )
 
-(defn vert-attrib-ptr [gl loc size type normalized? stride offset]
-  (.vertexAttribPointer gl loc size type normalized? stride offset)  )
+(defn vert-attrib-ptr [gl loc size gl-type normalized? stride offset]
+  (.vertexAttribPointer gl loc size gl-type normalized? stride offset)  )
 
 (def type-info-defaults
   {:elements 1 

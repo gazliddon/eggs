@@ -10,13 +10,11 @@
 
     [eggs.lineshader :refer [async-load-shader line-shader-spec]]
     [eggs.resources :as res]
-    [eggs.vdef :as vdef]
     [eggs.glvertbuffer :as glvb]
     [eggs.protocols :as p]
     [eggs.glwindow :as glw]
     [eggs.timer :as timer]
     [eggs.keyboard :as kb]
-    [eggs.vdef :as vdef]
     [eggs.printables :as pt]
     [eggs.pad :as joypads]
 
@@ -357,12 +355,16 @@
 ;;}}}
 
 (do
+  (defn use-program! [gl {:keys [program] :as shader } ]
+    (.useProgram gl program))
+
   (def gl gl-ctx)
   (def shader-ch (async-load-shader gl line-shader-spec) )
   (def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) 100)  )
 
   (go 
     (let [shader (async/<! shader-ch)]
+
       (t/info "shader loaded")
 
       ;; set the buffer
@@ -370,8 +372,11 @@
         (p/write-buffer! vb idx v))
 
       (anim/animate (fn [t]
-                      (update-game! t gl-ctx camera pads printable)
-                      (p/make-active! vb gl shader) 
+                      (use-program! gl shader )
+
+                      (p/make-active! vb gl shader)
+
+                      (update-game! t gl camera pads printable)
                       )))))
 
 ;;}}}

@@ -1,5 +1,7 @@
 (ns eggs.glvertbuffer
   (:require 
+    [cljs.pprint :refer [pprint]]
+    [util.misc :refer [js-log]]
     [eggs.protocols :as p]
     [eggs.vdef :as vdef]
     [thi.ng.geom.gl.webgl.constants :as glc]
@@ -22,11 +24,11 @@
 
   p/IGLVertBuffer
 
-  (make-active! [{:keys [gl-attrs gl-buffer] :as this} gl {:keys [attrs] :as shader}]
+  (make-active! [{:keys [gl-attrs gl-buffer] :as this} gl {:keys [attribs] :as shader}]
     (do
       (.bindBuffer gl glc/array-buffer gl-buffer)
       (doseq [[id gl-attr] gl-attrs]
-        (when-let [loc (get attrs id)]
+        (when-let [loc (get attribs id)]
           (p/enable-attribute! gl-attr gl loc))))))
 
 (defn mk-vert-buffer [gl attribs n]
