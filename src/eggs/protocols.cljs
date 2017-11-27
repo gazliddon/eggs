@@ -38,4 +38,11 @@
   (get-num-of-verts [_] )
   (get-attr-buffers [_])
   (get-size-in-bytes [_]))
+
+(defprotocol IGLVertBuffer 
+  (make-active!  [this gl shader]))
+
+(defprotocol IGLAttribute 
+  (enable-attribute! [_ gl loc]))
+
 ;; }}}

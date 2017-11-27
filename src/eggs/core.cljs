@@ -6,44 +6,40 @@
     [thi.ng.math.macros :as mm])
 
   (:require
-   [thi.ng.xerror.core :as err]
+    [thi.ng.xerror.core :as err]
 
+    [eggs.lineshader :refer [async-load-shader line-shader-spec]]
     [eggs.resources :as res]
-    [eggs.fetch :refer [fetch-files-in-hash]]
     [eggs.vdef :as vdef]
+    [eggs.glvertbuffer :as glvb]
     [eggs.protocols :as p]
-
-    [cljs.core.async :as async ]
-
-    [com.stuartsierra.component :as c]
-
     [eggs.glwindow :as glw]
-
-    [cljs.pprint :refer [pprint]]
-
-    [goog.dom :as gdom] 
-
-    [taoensso.timbre :as t
-      :refer-macros [log  trace  debug  info  warn  error  fatal  report
-                     logf tracef debugf infof warnf errorf fatalf reportf ]]
-
     [eggs.timer :as timer]
     [eggs.keyboard :as kb]
     [eggs.vdef :as vdef]
     [eggs.printables :as pt]
+    [eggs.pad :as joypads]
 
     [util.vec :as V]
     [util.vec4 :refer [vec4]]
     [util.misc :refer [js-log map-kv]]
 
-    [eggs.pad :as joypads]
+    [cljs.core.async :as async ]
+    [cljs.pprint :refer [pprint]]
+
+    [com.stuartsierra.component :as c]
+    [goog.dom :as gdom] 
+
+    [taoensso.timbre :as t
+     :refer-macros [log  trace  debug  info  warn  error  fatal  report
+                    logf tracef debugf infof warnf errorf fatalf reportf ]]
+
+
 
     [cljs.spec.alpha :as s ]
-
     [thi.ng.geom.core :as g]
     [thi.ng.geom.types]
     [thi.ng.math.core :as m :refer [PI HALF_PI TWO_PI]]
-
     [thi.ng.geom.vector :as v :refer [vec2 vec3]]
 
     [thi.ng.geom.gl.core :as gl]
@@ -54,7 +50,6 @@
     [thi.ng.geom.gl.glmesh :as glmesh]
     [thi.ng.geom.gl.camera :as cam]
     [thi.ng.geom.gl.shaders :as shaders] 
-    [thi.ng.geom.gl.webgl.constants :as glc]
     [thi.ng.geom.gl.webgl.animator :as anim])
   
   ;; }}}
@@ -327,145 +322,57 @@
 
 ;; }}}
 
-;; {{{ Shader loading
-(defn async-load-shader [ shader ]
-  (go
-    (let [kz [:vs-file :fs-file :common]
-          loaded (-> (select-keys shader kz)
-                     (fetch-files-in-hash)
-                     (async/<!)) 
-          {:keys [common vs-file fs-file]} loaded 
-
-          shader (assoc  shader
-                        :vs (str common "\r\n" vs-file)
-                        :fs (str common "\r\n" fs-file)
-                        :vs-file nil
-                        :fs-file nil
-                        :common nil) ]
-      (shaders/make-shader-from-spec gl-ctx shader )
-      )))
-;; }}}
-
-;;; {{{ Line Shader def
-
-(def line-shader-spec
-  {:vs-file "shaders/line.vs"
-
-   :fs-file "shaders/line.fs"
-
-   :common "shaders/common.glsl"
-
-   :version 300
-
-   :varying {:v_uv :vec2
-             :v_color :vec4
-             :v_radius :float 
-             :v_hardness :float}
-
-   :uniforms {:u_vp           :mat4
-              :u_model        :mat4
-              :u_hardness     [:vec2 [1.0 1.0]]
-              :u_radii        :vec2
-              :u_inner_color  :vec4
-              :u_outer_color  :vec4
-              :u_dist_mul     [:float 1.0]
-              :uv_mul         :vec2 }
-
-   :attribs  {:a_index      :int
-              :a_position0  :vec2
-              :a_position1  :vec2
-              :a_radii      :vec2
-              :a_color0     :vec4 
-              :a_color1     :vec4 }})
-;;; }}}
-
 ;;{{{ geom for one line
 
 (def a {:a_index      0
-   :a_position0  (vec2 0 0)
-   :a_position1  (vec2 1 1)
-   :a_radii      (vec2 0.1 0.1)
-   :a_color0     (vec4 0 1 0 1)
-   :a_color1     (vec4 1 0 0 1)} )
+        :a_position0  (vec2 0 0)
+        :a_position1  (vec2 1 1)
+        :a_radii      (vec2 0.1 0.1)
+        :a_color0     (vec4 0 1 0 1)
+        :a_color1     (vec4 1 0 0 1)} )
 
 (def b {:a_index      1
-   :a_position0  (vec2 0 0)
-   :a_position1  (vec2 1 1)
-   :a_radii      (vec2 0.1 0.1)
-   :a_color0     (vec4 0 1 0 1)
-   :a_color1     (vec4 1 0 0 1)} )
+        :a_position0  (vec2 0 0)
+        :a_position1  (vec2 1 1)
+        :a_radii      (vec2 0.1 0.1)
+        :a_color0     (vec4 0 1 0 1)
+        :a_color1     (vec4 1 0 0 1)} )
 
 (def c {:a_index      2
-   :a_position0  (vec2 0 0)
-   :a_position1  (vec2 1 1)
-   :a_radii      (vec2 0.1 0.1)
-   :a_color0     (vec4 0 1 0 1)
-   :a_color1     (vec4 1 0 0 1)} )
+        :a_position0  (vec2 0 0)
+        :a_position1  (vec2 1 1)
+        :a_radii      (vec2 0.1 0.1)
+        :a_color0     (vec4 0 1 0 1)
+        :a_color1     (vec4 1 0 0 1)} )
 
 (def d {:a_index      3
-   :a_position0  (vec2 0 0)
-   :a_position1  (vec2 1 1)
-   :a_radii      (vec2 0.1 0.1)
-   :a_color0     (vec4 0 1 0 1)
-   :a_color1     (vec4 1 0 0 1)} )
+        :a_position0  (vec2 0 0)
+        :a_position1  (vec2 1 1)
+        :a_radii      (vec2 0.1 0.1)
+        :a_color0     (vec4 0 1 0 1)
+        :a_color1     (vec4 1 0 0 1)} )
 
 (def one-line [ a b c b d c ])  
 
 ;;}}}
 
-;; {{{ Stolen Attribute enabling / disabling
+(do
+  (def gl gl-ctx)
+  (def shader-ch (async-load-shader gl line-shader-spec) )
+  (def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) 100)  )
 
-(defn make-gl-vert-buffer! [{:keys [attr-specs] :as vert-buffer } gl {:keys [attrs] :as shader }]
-  (let [gl-buffer (.createBuffer gl)]
-    (assoc vert-buffer
-           ;; add a gl buffer
-           :gl-buffer gl-buffer
-           ;; buff attr specs w loc and buffer info
-           :attr-specs (-> (fn [k v]
-                             (assoc v :gl-buffer gl-buffer
-                                    :loc (get attrs k :attr-not-found)))
-                           (map-kv attr-specs)))))
+  (go 
+    (let [shader (async/<! shader-ch)]
+      (t/info "shader loaded")
 
-(defprotocol IGLVertBuffer 
-  (make-active!  [this gl]))
+      ;; set the buffer
+      (doseq [[idx v] (map-indexed vector one-line)]
+        (p/write-buffer! vb idx v))
 
-(extend-type vdef/VertBuffer 
-  IGLVertBuffer
-
-  (make-active! [{:keys [gl-buffer attr-specs] :as this} gl]
-    (do
-      (.bindBuffer gl glc/array-buffer gl-buffer)
-
-      (doseq [[id attr-spec] attr-specs]
-        (let [{:keys [gl-buffer gl-vert-attr-ptr buffer stride size type normalized? offset loc] } attr-spec] 
-          (doto gl
-            (.enableVertexAttribArray loc)
-            (gl-vert-attr-ptr loc size type normalized? stride offset)))))))
-;; }}}
-
-(def shader-ch (async-load-shader line-shader-spec) )
-
-
-(defn doseq-idx [fun col]
- (doseq [[idx v] (map-indexed vector col)]
-   (fun idx v)))
-
-(go 
-  (let [gl gl-ctx
-        shader (async/<! shader-ch) 
-        vb (-> (vdef/mk-vert-buffer (:attribs line-shader-spec) 100) 
-               (make-gl-vert-buffer! gl shader)) ]
-
-    ;; set the buffer
-    (doseq-idx #(p/write-buffer! vb % %2) one-line)
-
-    ; (make-active! vb gl)
-
-    (anim/animate (fn [t]
-                    (update-game! t gl camera pads printable)))
-
-    (t/info "shader loaded")  
-    ))
+      (anim/animate (fn [t]
+                      (update-game! t gl-ctx camera pads printable)
+                      (p/make-active! vb gl shader) 
+                      )))))
 
 ;;}}}
 

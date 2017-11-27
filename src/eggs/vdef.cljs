@@ -37,15 +37,13 @@
   (s/def ::offset unsigned-integer?)
   (s/def ::gl-type unsigned-integer?)
   (s/def ::gl-vert-attr-ptr fn?)
-  (s/def ::attr-buffer array-buffer?)
 
   (s/def ::attr-spec (s/keys :req-un [::normalized?
                                       ::size
                                       ::stride
                                       ::offset
                                       ::gl-type
-                                      ::gl-vert-attr-ptr 
-                                      ::buffer]))
+                                      ::gl-vert-attr-ptr ]))
 
 ;; }}}
 
@@ -148,7 +146,6 @@
 ;; }}}
 
 ;; {{{  Vert def making
-
 (defn add-v-def [{:keys [size] :as vdef} id type-info]
   (->
     (assoc-in vdef [:vdefs id] (merge type-info {:offset size}))
@@ -215,8 +212,7 @@
 (defn mk-attr-spec [attr-def vert-def array-buffer]
   (merge 
     (select-keys attr-def [:type :offset :gl-vert-attr-ptr :gl-type])
-    {:buffer array-buffer
-     :normalized? false
+    {:normalized? false
      :size (p/get-num-of-elements attr-def) 
      :stride (p/get-vert-size vert-def) }))
 
@@ -310,24 +306,10 @@
     (< n 0) not-found
     (>= n (count o)) not-found
     :else (aget o n)))
+
 ;; }}}
 
 ;; {{{ JS Extend float array so it's comparable etc
-
-(comment extend-type js/Float32Array
-  cljs.core/IIndexed
-  (-nth 
-    ([o n nf] (js-nth o n nf))
-    ([o n] (nth o n nil )))
-
-  cljs.core/IEquiv
-  (^boolean -equiv [o other] (zero? (compare o other)))
-
-  cljs.core/ICounted (-count [o] (js-count o))
-
-  cljs.core/IComparable
-  (-compare [o other] (compare-indexed o other)))
-
 
 (buff-js-array js/Float32Array js-count js-nth)
 (buff-js-array js/Int32Array js-count js-nth)
@@ -364,11 +346,9 @@
     (pprint test-vert)
 
     (p/write-buffer! vb 0 test-vert)
-
     (pprint (p/read-buffer vb 0))
 
     (println "Equality test" (= test-vert (p/read-buffer vb 0)))
-
 
     ))
 
