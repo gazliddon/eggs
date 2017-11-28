@@ -7,6 +7,7 @@
 
   (:require
     [thi.ng.xerror.core :as err]
+    [thi.ng.geom.gl.webgl.constants :as glc]
 
     [eggs.lineshader :refer [async-load-shader line-shader-spec]]
     [eggs.resources :as res]
@@ -90,10 +91,7 @@
   (let [ mat (xlate pos) ]
     (doto ctx
 
-      (gl-clear!
-        (cos-01 t 0 3) 
-        (cos-01 t 1 1.3) 
-        (cos-01 t 2 -0.5))
+      
 
       (draw-printable printable cam (xlate pos)))))
 
@@ -162,8 +160,7 @@
 
 ;;;}}}
 
-(def triangle (geom/as-mesh (tri/triangle3 [[0.1 0 0] [-0.1 0 0] [0 0.1 0]])
-                            {:mesh (glmesh/gl-mesh 3)}))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; {{{ Game Update
@@ -288,33 +285,68 @@
         :a_color0     (vec4 0 1 0 1)
         :a_color1     (vec4 1 0 0 1)} )
 
-(def one-line [ a b c b d c ])  
+(def one-line [ a b c b c d ])  
 
 ;;}}}
 
-(do
-  (def gl gl-ctx)
+;; test code
+(def gl gl-ctx)
 
-  (defn use-program! [gl {:keys [program] :as shader } ]
-    (.useProgram gl program))
+(defn use-program! [gl {:keys [program] :as shader } ]
+  (.useProgram gl program))
 
-  (def shader-ch (async-load-shader gl line-shader-spec) )
-  (def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) 100)  )
+(defn set-uni! [gl {:keys [uniforms]} k v]
+  (if-let [uni (get uniforms k) ]
+    (do 
+      ((:setter uni) v))
+    (t/warn (str "unknown uniform " v))))
 
-  (p/buffer-data! vb gl)
+(defn set-unis! [gl {:keys [uniforms] :as shader} hsh] 
+  (doseq [[k v] hsh]
+    (set-uni! gl shader k v)))
 
-  (go 
-    (let [shader (async/<! shader-ch)]
-      (t/info "shader loaded")
+(def shader-ch (async-load-shader gl line-shader-spec) )
+(def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) 100)  )
 
-      ;; set the buffer
-      (doseq [[idx v] (map-indexed vector one-line)]
-        (p/write-buffer! vb idx v))
+(def unis {:u_vp           mat/M44 
+           :u_model        mat/M44 
+           :u_hardness     (vec2 0.1 0.1)
+           :u_radii        (vec2 1.1 1.1)
+           :u_inner_color  (vec4 1 1 1 1)
+           :u_outer_color  (vec4 1 1 1 1)
+           :u_dist_mul     1.0
+           :uv_mul         (vec2 1 1) })
 
-      (anim/animate (fn [t]
-                      (update-game! t gl camera pads printable)
-                      (use-program! gl shader )
-                      (p/make-active! vb gl shader)
-                      )))))
+(go 
+  (let [shader (async/<! shader-ch)]
+
+    (use-program! gl shader )
+    (set-uni! gl shader :u_vp mat/M44)
+
+    ;; set the buffer
+    (doseq [[idx v] (map-indexed vector one-line)]
+      (p/write-buffer! vb idx v))
+
+    (p/buffer-data! vb gl)
+
+    (anim/animate (fn [t]
+                    (gl-clear!
+                      gl
+                      (cos-01 t 0 3) 
+                      (cos-01 t 1 1.3) 
+                      (cos-01 t 2 -0.5))
+
+                    (use-program! gl shader )
+                    (p/make-active! vb gl shader)
+                    (set-unis! gl shader unis)
+                    (.drawArrays gl glc/triangles 0 6)
+
+                    (update-game! t gl camera pads printable)
+
+
+
+                    )
+
+                  )))
 
 ;; vim:set fdm=marker : set nospell :

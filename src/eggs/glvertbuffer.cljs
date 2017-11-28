@@ -7,8 +7,18 @@
     [thi.ng.geom.gl.webgl.constants :as glc]
     [util.misc :refer [map-kv map-keys]]))
 
-;; TODO move gl-vert-attr-ptr and all GL bullshit into here from vdef
+;; TODO all glinfo in this file please
 
+(def gl-type-info 
+  {:int      {:gl-type glc/int :gl-vert-attr-ptr ivert-attrib-ptr  } 
+   :uint      {:gl-type glc/unsigned-int :gl-vert-attr-ptr ivert-attrib-ptr  }
+   :float    {}  
+   :vec2     {}
+   :vec3     {}
+   :vec4     {} })
+
+
+;; TODO move gl-vert-attr-ptr and all GL bullshit into here from vdef
 (defn mk-gl-attr [attr-spec]
   (let [{:keys [normalized? size stride offset gl-vert-attr-ptr gl-type]} attr-spec ]
     (reify p/IGLAttribute 
