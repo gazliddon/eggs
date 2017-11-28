@@ -314,7 +314,7 @@
            :u_radii        (vec2 1.1 1.1)
            :u_inner_color  (vec4 1 1 1 1)
            :u_outer_color  (vec4 1 1 1 1)
-           :u_dist_mul     1.0
+           :u_dist_mul     2.0
            :uv_mul         (vec2 1 1) })
 
 (go 
@@ -330,23 +330,24 @@
     (p/buffer-data! vb gl)
 
     (anim/animate (fn [t]
-                    (gl-clear!
-                      gl
-                      (cos-01 t 0 3) 
-                      (cos-01 t 1 1.3) 
-                      (cos-01 t 2 -0.5))
 
-                    (use-program! gl shader )
-                    (p/make-active! vb gl shader)
-                    (set-unis! gl shader unis)
-                    (.drawArrays gl glc/triangles 0 6)
+                    (let [r (cos-01 t 0 3)
+                          g (cos-01 t 1 1.3)
+                          b (cos-01 t 2 -0.3) ]
 
-                    (update-game! t gl camera pads printable)
+                      (gl-clear!  gl 0 0 0.1)
+
+                      (use-program! gl shader)
+                      (p/make-active! vb gl shader)
+                      (set-unis! gl shader (assoc unis 
+                                                  :u_outer_color (vec4 b r g 1)  
+                                                  :u_inner_color (vec4 r g b 1)))
+                      (.drawArrays gl glc/triangles 0 6)
+
+                      (update-game! t gl camera pads printable)
+                      )
 
 
-
-                    )
-
-                  )))
+                    ))))
 
 ;; vim:set fdm=marker : set nospell :
