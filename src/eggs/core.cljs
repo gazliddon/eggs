@@ -257,35 +257,35 @@
 
 ;;{{{ geom for one line
 
-(def a {:a_index      0
+(def a {:a_index      1
         :a_position0  (vec2 0 0)
         :a_position1  (vec2 1 1)
         :a_radii      (vec2 0.1 0.1)
         :a_color0     (vec4 0 1 0 1)
         :a_color1     (vec4 1 0 0 1)} )
 
-(def b {:a_index      1
+(def b {:a_index      0
         :a_position0  (vec2 0 0)
         :a_position1  (vec2 1 1)
         :a_radii      (vec2 0.1 0.1)
         :a_color0     (vec4 0 1 0 1)
         :a_color1     (vec4 1 0 0 1)} )
 
-(def c {:a_index      2
+(def c {:a_index    3
         :a_position0  (vec2 0 0)
         :a_position1  (vec2 1 1)
         :a_radii      (vec2 0.1 0.1)
         :a_color0     (vec4 0 1 0 1)
         :a_color1     (vec4 1 0 0 1)} )
 
-(def d {:a_index      3
+(def d {:a_index      2
         :a_position0  (vec2 0 0)
         :a_position1  (vec2 1 1)
         :a_radii      (vec2 0.1 0.1)
         :a_color0     (vec4 0 1 0 1)
         :a_color1     (vec4 1 0 0 1)} )
 
-(def one-line [ a b c b c d ])  
+(def one-line [a b c d])  
 
 ;;}}}
 
@@ -330,24 +330,21 @@
     (p/buffer-data! vb gl)
 
     (anim/animate (fn [t]
-
                     (let [r (cos-01 t 0 3)
                           g (cos-01 t 1 1.3)
                           b (cos-01 t 2 -0.3) ]
 
-                      (gl-clear!  gl 0 0 0.1)
+                      (gl-clear!  gl (/ r 3) 0 0.1)
 
                       (use-program! gl shader)
                       (p/make-active! vb gl shader)
-                      (set-unis! gl shader (assoc unis 
-                                                  :u_outer_color (vec4 b r g 1)  
-                                                  :u_inner_color (vec4 r g b 1)))
-                      (.drawArrays gl glc/triangles 0 6)
+                      (set-unis! gl shader (assoc 
+                                             unis 
+                                             :u_outer_color (vec4 b r g 1)  
+                                             :u_inner_color (vec4 r g b 1)))
 
-                      (update-game! t gl camera pads printable)
-                      )
+                      (.drawArrays gl glc/triangle-strip 0 4)
 
-
-                    ))))
+                      (update-game! t gl camera pads printable))))))
 
 ;; vim:set fdm=marker : set nospell :
