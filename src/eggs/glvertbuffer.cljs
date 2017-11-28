@@ -7,6 +7,8 @@
     [thi.ng.geom.gl.webgl.constants :as glc]
     [util.misc :refer [map-kv map-keys]]))
 
+;; TODO move gl-vert-attr-ptr and all GL bullshit into here from vdef
+
 (defn mk-gl-attr [attr-spec]
   (let [{:keys [normalized? size stride offset gl-vert-attr-ptr gl-type]} attr-spec ]
     (reify p/IGLAttribute 
@@ -15,14 +17,18 @@
             (.enableVertexAttribArray loc)
             (gl-vert-attr-ptr loc size gl-type normalized? stride offset))))))
 
-(defn mk-gl-vert-buffer [{:keys [attr-specs] :as vert-buffer } gl]
+(defn mk-gl-vert-buffer [{:keys [attr-specs array-buffer] :as vert-buffer } gl]
   (-> vert-buffer
       (assoc :gl-buffer (.createBuffer gl)
-             :gl-attrs (map-keys mk-gl-attr attr-specs)) ))
+             :gl-attrs (map-keys mk-gl-attr attr-specs)
+             :gl-buffer-view (js/Uint8Array. array-buffer))))
 
 (extend-type vdef/VertBuffer 
-
   p/IGLVertBuffer
+
+  (buffer-data! [{:keys [gl-buffer gl-buffer-view]} gl ]
+    (.bindBuffer gl glc/array-buffer gl-buffer)
+    (.bufferData gl glc/array-buffer gl-buffer-view glc/static-draw 0 0))
 
   (make-active! [{:keys [gl-attrs gl-buffer] :as this} gl {:keys [attribs] :as shader}]
     (do
@@ -32,7 +38,8 @@
           (p/enable-attribute! gl-attr gl loc))))))
 
 (defn mk-vert-buffer [gl attribs n]
-  (-> (vdef/mk-vert-buffer attribs n) 
-      (mk-gl-vert-buffer gl)))
+  (let [ret (-> (vdef/mk-vert-buffer attribs n) 
+                (mk-gl-vert-buffer gl)) ]
+    ret))
 
 

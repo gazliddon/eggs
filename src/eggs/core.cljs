@@ -162,67 +162,6 @@
 
 ;;;}}}
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; {{{bullets
-
-(defmethod update-obj :bulllet [{:keys [pos vel] :as b} t pad]
-  )
-
-(defprotocol IPredictable
-  (get-acc [_ t])
-  (get-pos [_ t])
-  (get-vel [_ t]))
-
-(defprotocol IDraw
-  (draw [_ ctx t]))
-
-(defprotocol IAgeable 
-  (get-age [_ t]))
-
-
-(defrecord Bullet [created-at pos vel type]
-  IDraw
-  (draw [this ctx t]
-    (let [pos (get-pos this t)]
-      )
-    )
-
-  IAgeable
-  (get-age [_ t]
-    (- t created-at))
-
-  IPredictable
-  (get-acc [this t]
-    0)
-
-  (get-vel [this t]
-    vel)
-
-  (get-pos [this t]
-    (let [age (get-age this t)]
-      (m/+ pos 
-           (m/* vel age)))))
-
-
-(defn mk-bullet [created-at pos vel]
-  (->Bullet created-at pos vel :bullet))
-
-(defonce bullets (atom []))
-
-(defn add-bullet! [t pos vel]
-  (swap! bullets conj (mk-bullet t pos vel)))
-
-(defn filter-bullets! [t max-life]
-  (->
-    (fn [o]
-      (let [age (- t (:time o))]
-        (<= age max-life)))
-
-    (filter @bullets)
-    (reset! bullets)))
-
-;; }}}
-
 (def triangle (geom/as-mesh (tri/triangle3 [[0.1 0 0] [-0.1 0 0] [0 0.1 0]])
                             {:mesh (glmesh/gl-mesh 3)}))
 
@@ -260,7 +199,6 @@
 (defn on-js-reload [])
 
 ;; }}}
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; {{{ Some component stuff - todo later when I need a keyboard
 
@@ -355,16 +293,18 @@
 ;;}}}
 
 (do
+  (def gl gl-ctx)
+
   (defn use-program! [gl {:keys [program] :as shader } ]
     (.useProgram gl program))
 
-  (def gl gl-ctx)
   (def shader-ch (async-load-shader gl line-shader-spec) )
   (def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) 100)  )
 
+  (p/buffer-data! vb gl)
+
   (go 
     (let [shader (async/<! shader-ch)]
-
       (t/info "shader loaded")
 
       ;; set the buffer
@@ -372,13 +312,9 @@
         (p/write-buffer! vb idx v))
 
       (anim/animate (fn [t]
-                      (use-program! gl shader )
-
-                      (p/make-active! vb gl shader)
-
                       (update-game! t gl camera pads printable)
+                      (use-program! gl shader )
+                      (p/make-active! vb gl shader)
                       )))))
-
-;;}}}
 
 ;; vim:set fdm=marker : set nospell :

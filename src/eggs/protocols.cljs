@@ -28,7 +28,6 @@
   (disable-array! [_])
   (bind-array! [_]))
 
-
 (defprotocol IVertDef 
   (get-attributes [_])
   (get-vert-size [_]))
@@ -40,7 +39,8 @@
   (get-size-in-bytes [_]))
 
 (defprotocol IGLVertBuffer 
-  (make-active!  [this gl shader]))
+  (make-active!  [this gl shader]) 
+  (buffer-data!  [this gl ]))
 
 (defprotocol IGLAttribute 
   (enable-attribute! [_ gl loc]))
