@@ -51,7 +51,7 @@ table {
 
 body {
     border: 0;
-    background-color: white;
+    background-color: black;
 }
 /* make the canvas the size of the viewport */
 canvas {

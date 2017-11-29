@@ -38,7 +38,8 @@
              :v_radius :float 
              :v_hardness :float}
 
-   :uniforms {:u_vp           :mat4
+   :uniforms {:u_proj         :mat4
+              :u_view         :mat4
               :u_model        :mat4
               :u_hardness     [:vec2 [1.0 1.0]]
               :u_radii        :vec2

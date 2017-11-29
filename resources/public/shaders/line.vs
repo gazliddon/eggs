@@ -1,5 +1,7 @@
 void main() {
 
+    mat4 vp = u_proj * u_view;
+
     LineVars vars;
 
     vec2 pos0 = (u_model * vec4(a_position0, 1.0)).xy;
@@ -18,6 +20,6 @@ void main() {
     v_radius         = vars.mRadius;
     v_hardness       = vars.mHardness;
 
-    gl_Position   =  u_vp * vec4(vars.mPos, 0.0, 1.0);
+    gl_Position   =  vp * vec4(vars.mPos, 0.0, 1.0);
 }
 

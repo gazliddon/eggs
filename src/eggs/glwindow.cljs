@@ -3,12 +3,24 @@
     [thi.ng.geom.gl.camera :as cam]
     [eggs.printables :as pt]
 
+    [goog.dom :as gdom] 
+
+
     [thi.ng.geom.core :as geom]
     [thi.ng.geom.triangle :as tri] 
     [thi.ng.geom.quad :as quad] 
     [thi.ng.geom.gl.glmesh :as glmesh]
     [thi.ng.geom.gl.shaders :as shaders] 
+    [thi.ng.geom.vector :as v :refer [vec2 vec3]]
     ))
+
+(defn get-win-wh []
+  (let [win js/window
+        w (.-innerWidth win)
+        h (.-innerHeight win)
+        ar (/ w h) ]
+    {:dims (vec2 w h)
+     :aspect ar }))
 
 (defn gl-context
   ([canvas attribs contexts]
@@ -22,7 +34,6 @@
                          (if ctx ctx (recur (next ids))))
                        (catch js/Error e (recur (next ids))))))]
      (or ctx (println "WebGL not available")))))
-
 
 (defrecord GLWindow [ctx cam ])
 
@@ -57,11 +68,6 @@
                             {:mesh (glmesh/gl-mesh 3)}))
 
 
-
 (defn mk-gl-window [canvas-name]
-  (let [ctx (gl-context canvas-name context-default-attribs contexts)
-        cam (cam/perspective-camera {}) ]
-    (do
-      (pt/register-printable! ctx :tri triangle shader-spec)
-      (pt/register-printable! ctx :quad quad shader-spec))
-    (->GLWindow ctx cam)))
+  (let [ctx (gl-context canvas-name context-default-attribs contexts) ]
+    (->GLWindow ctx nil)))

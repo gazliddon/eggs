@@ -200,6 +200,10 @@
 
 (defn on-js-reload [])
 
+
+
+
+
 ;; }}}
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; {{{ Some component stuff - todo later when I need a keyboard
@@ -349,7 +353,7 @@
   (if-let [uni (get uniforms k) ]
     (do 
       ((:setter uni) v))
-    (t/warn (str "unknown uniform " v))))
+    (t/warn (str "unknown uniform " k " val " v))))
 
 (defn set-unis! [gl {:keys [uniforms] :as shader} hsh] 
   (doseq [[k v] hsh]
@@ -358,16 +362,19 @@
 (def shader-ch (async-load-shader gl line-shader-spec) )
 (def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 10  (count many-lines) ))  )
 
-(def unis {:u_vp           mat/M44 
-           :u_model        (scale (vec2 0.5 0.5))
+(def unis {:u_view         mat/M44
+           :u_proj         mat/M44
+           :u_model        mat/M44
            :u_hardness     (vec2 0.01 0.01)
            :u_radii        (vec2 1.0 1.0)
            :u_inner_color  (vec4 1 1 1 1)
            :u_outer_color  (vec4 1 1 1 1) })
+
+
+
 (go 
   (let [shader (async/<! shader-ch)]
     (use-program! gl shader )
-    (set-uni! gl shader :u_vp mat/M44)
 
     ;; set the buffer
     (doseq [[idx v] (map-indexed vector many-lines)]
@@ -375,12 +382,16 @@
 
     (p/buffer-data! vb gl)
 
+
     (anim/animate (fn [t]
+
                     (stats/begin stats)
 
                     (let [r (cos-01 t 0 3)
                           g (cos-01 t 1 1.3)
-                          b (cos-01 t 2 -0.3) ]
+                          b (cos-01 t 2 -0.3) 
+                          wh (glw/get-win-wh )
+                          cam (cam/perspective-camera {:aspect (:aspect wh)}) ]
 
                       (gl-clear!  gl 0 0 0.1)
                       (.enable gl glc/blend )
@@ -388,13 +399,14 @@
 
                       (use-program! gl shader)
                       (p/make-active! vb gl shader)
-                      (set-unis! gl shader (assoc 
-                                             unis 
-                                             :u_outer_color (vec4 b r g 1)  
-                                             :u_radii (vec2 (* b 5) (* b 5))))
+                      (set-unis! gl shader (assoc unis 
+                                                  :u_proj (:proj cam)
+                                                  :u_view (:view cam)
+                                                  :u_model mat/M44
+                                                  :u_outer_color (vec4 b r g 1)  
+                                                  :u_radii (vec2 (* b 5) (* b 5))))
 
                       (.drawArrays gl glc/triangles 0 (* 4 10))
-
 
                       (update-game! t gl camera pads printable))
 
