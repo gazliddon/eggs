@@ -10,7 +10,6 @@
     [thi.ng.geom.gl.shaders :as shaders] 
     ))
 
-
 (defn gl-context
   ([canvas attribs contexts]
    (let [canvas  (if (string? canvas) (.getElementById js/document canvas) canvas)
@@ -39,7 +38,6 @@
       :preserve-drawing-buffer              false
       :stencil                              false})
 
-
 (defonce shader-spec
   {:vs "void main() { gl_Position = proj * view * model * vec4(position, 1.0); }"
 
@@ -58,22 +56,7 @@
 (def quad (geom/as-mesh (quad/quad3 [0.1 -0.1 ] [-0.1 -0.1 ] [-0.1 0.1 ] [0.1 0.1 ])
                             {:mesh (glmesh/gl-mesh 3)}))
 
-(defonce line-shader-spec
-  {:vs "void main() { gl_Position = proj * view * model * vec4(position, 1.0); }"
 
-   :fs "void main() { gl_FragColor = vec4(0.5, 0.5, 1.0, 1.0); }" 
-
-   :uniforms {:u_vp       :mat4
-              :u_model    :mat4
-              :u_hardness :vec2
-              :u_radii    :vec2}
-
-   :attribs  {:a_index      :int
-              :a_position0  :vec2
-              :a_position1  :vec2
-              :a_radii      :vec2
-              :a_color0     :vec4
-              :a_color1     :vec4 }})
 
 (defn mk-gl-window [canvas-name]
   (let [ctx (gl-context canvas-name context-default-attribs contexts)

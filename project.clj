@@ -18,6 +18,7 @@
                  [com.taoensso/truss "1.5.0"]
                  [prismatic/plumbing "0.5.5"]
                  [com.stuartsierra/component "0.3.2"]
+                 [cljsjs/stats "16.0-0"]
                  [com.taoensso/timbre "4.10.0"]  
                  [org.clojure/test.check "0.10.0-alpha2"] ]
 

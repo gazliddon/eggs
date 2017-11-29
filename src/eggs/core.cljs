@@ -6,6 +6,7 @@
     [thi.ng.math.macros :as mm])
 
   (:require
+    [util.stats :as stats]
     [thi.ng.xerror.core :as err]
     [thi.ng.geom.gl.webgl.constants :as glc]
 
@@ -183,6 +184,8 @@
 (defonce gl-ctx (:ctx gl-window))
 (defonce camera (:cam gl-window))
 (defonce printable (pt/get-printable :quad))
+
+(defonce stats (stats/mk-stats))
 
 (def timer (timer/mk-timer))
 
@@ -373,6 +376,8 @@
     (p/buffer-data! vb gl)
 
     (anim/animate (fn [t]
+                    (stats/begin stats)
+
                     (let [r (cos-01 t 0 3)
                           g (cos-01 t 1 1.3)
                           b (cos-01 t 2 -0.3) ]
@@ -390,6 +395,9 @@
 
                       (.drawArrays gl glc/triangles 0 (* 4 10))
 
-                      (update-game! t gl camera pads printable))))))
+
+                      (update-game! t gl camera pads printable))
+
+                    (stats/end stats)))))
 
 ;; vim:set fdm=marker : set nospell :
