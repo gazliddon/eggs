@@ -1,18 +1,11 @@
 void main() {
+
     LineVars vars;
 
-    float l = 1.0;
+    vec2 pos0 = (u_model * vec4(a_position0, 1.0)).xy;
+    vec2 pos1 = (u_model * vec4(a_position1, 1.0)).xy;
 
-    int vid = a_index;
-
-    vec2 pos0 = (u_model * vec4(a_position0, 0.0, 1.0)).xy;
-    vec2 pos1 = (u_model * vec4(a_position1, 0.0, 1.0)).xy;
-
-    vec2 v = pos1 - pos0;
-    pos0 = pos0 + ((1.0-l) / 2.0) * v;
-    pos1 = pos0 + v * l;
-
-    vars = makeLineVars( pos0, pos1, a_radii * u_radii, u_hardness, vid);
+    vars = makeLineVars( pos0, pos1, a_radii * u_radii, u_hardness, a_index);
 
     vec4 cols[4] = vec4[] (
     		a_color0,
@@ -20,7 +13,7 @@ void main() {
     		a_color0,
     		a_color1);
 
-    v_color          = cols[vid] ;
+    v_color          = cols[a_index] ;
     v_uv             = vars.mUv ;
     v_radius         = vars.mRadius;
     v_hardness       = vars.mHardness;

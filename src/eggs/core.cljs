@@ -64,10 +64,10 @@
     (geom/rotate-y  (/ t 2) )
     (geom/rotate-z  (* t 2) )))
 
-(defn xlate [v]
-  (let [m mat/M44]
-    (-> mat/M44
-    (g/translate v))))
+(defn xlate [v] (-> mat/M44 (g/translate v)))
+
+(defn scale [v] (-> mat/M44 (g/scale v)))
+
 
 (defn draw-printable [ctx printable cam model-mat]
   (gl/draw-with-shader ctx (assoc-in (cam/apply printable cam)
@@ -93,7 +93,9 @@
 
       
 
-      (draw-printable printable cam (xlate pos)))))
+      ; (draw-printable printable cam (xlate pos))
+      
+      )))
 
 ;; Draw stuff
 (defmulti draw-obj (fn [o t ] (:type o)) )
@@ -258,34 +260,79 @@
 ;;{{{ geom for one line
 
 (def a {:a_index      1
-        :a_position0  (vec2 0 0)
-        :a_position1  (vec2 1 1)
+        :a_position0  (vec3 0 0)
+        :a_position1  (vec3 1 1)
         :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 0 1 0 1)
-        :a_color1     (vec4 1 0 0 1)} )
+        :a_color0     (vec4 1 1 1 1)
+        :a_color1     (vec4 1 1 1 1)})
 
 (def b {:a_index      0
-        :a_position0  (vec2 0 0)
-        :a_position1  (vec2 1 1)
+        :a_position0  (vec3 0 0)
+        :a_position1  (vec3 1 1)
         :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 0 1 0 1)
-        :a_color1     (vec4 1 0 0 1)} )
+        :a_color0     (vec4 1 1 1 1)
+        :a_color1     (vec4 1 1 1 1)})
 
-(def c {:a_index    3
-        :a_position0  (vec2 0 0)
-        :a_position1  (vec2 1 1)
+(def c {:a_index      3
+        :a_position0  (vec3 0 0)
+        :a_position1  (vec3 1 1)
         :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 0 1 0 1)
-        :a_color1     (vec4 1 0 0 1)} )
+        :a_color0     (vec4 1 1 1 1)
+        :a_color1     (vec4 1 1 1 1)})
 
 (def d {:a_index      2
-        :a_position0  (vec2 0 0)
-        :a_position1  (vec2 1 1)
+        :a_position0  (vec3 0 0)
+        :a_position1  (vec3 1 1)
         :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 0 1 0 1)
-        :a_color1     (vec4 1 0 0 1)} )
+        :a_color0     (vec4 1 1 1 1)
+        :a_color1     (vec4 1 1 1 1)})
 
-(def one-line [a b c d])  
+; (def one-line [a b c d ])  
+
+(defprotocol ILines
+  (set-base [this new-base])
+  (add-line-v [this new-v])
+  (add-line-p [this p0 p1]))
+
+(defprotocol IVerts
+  (get-verts [this]))
+
+(defrecord Verts [base verts]
+
+  ILines
+
+  (set-base [this new-base]
+    (assoc this :base new-base))
+
+  (add-line-v [this new-v]
+   (let [new-base (merge base new-v)
+          new-verts (map #(assoc new-base :a_index %) [1 0 3 0 3 2])]
+      (assoc this :verts(into verts new-verts) :base new-base )) )
+
+  (add-line-p [this p0 p1]
+    (add-line-v this {:a_position0 p0 :a_position1 p1})))
+
+(defn mk-line-verts [ base-hash ]
+  (map->Verts {:base base-hash :verts []}))
+
+(def sq [
+         (vec3 0 0) (vec3 1 0)
+         (vec3 1 0) (vec3 1 1)
+         (vec3 1 1) (vec3 0 1)
+         (vec3 0 1) (vec3 0 0) ])
+
+(defn add-lines [verts lines]
+  (->
+    (fn [acc [p0 p1]]
+      (add-line-p acc p0 p1))
+    (reduce verts (partition 2 lines) )))
+
+(def many-lines
+  (-> (mk-line-verts {:a_radii  (vec2 0.1 0.1)
+                      :a_color0 (vec4 1 1 1 1)
+                      :a_color1 (vec4 1 1 1 1)})
+      (add-lines sq)
+      :verts))
 
 ;;}}}
 
@@ -306,25 +353,21 @@
     (set-uni! gl shader k v)))
 
 (def shader-ch (async-load-shader gl line-shader-spec) )
-(def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) 100)  )
+(def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 10  (count many-lines) ))  )
 
 (def unis {:u_vp           mat/M44 
-           :u_model        mat/M44 
-           :u_hardness     (vec2 0.1 0.1)
-           :u_radii        (vec2 1.1 1.1)
+           :u_model        (scale (vec2 0.5 0.5))
+           :u_hardness     (vec2 0.01 0.01)
+           :u_radii        (vec2 1.0 1.0)
            :u_inner_color  (vec4 1 1 1 1)
-           :u_outer_color  (vec4 1 1 1 1)
-           :u_dist_mul     2.0
-           :uv_mul         (vec2 1 1) })
-
+           :u_outer_color  (vec4 1 1 1 1) })
 (go 
   (let [shader (async/<! shader-ch)]
-
     (use-program! gl shader )
     (set-uni! gl shader :u_vp mat/M44)
 
     ;; set the buffer
-    (doseq [[idx v] (map-indexed vector one-line)]
+    (doseq [[idx v] (map-indexed vector many-lines)]
       (p/write-buffer! vb idx v))
 
     (p/buffer-data! vb gl)
@@ -334,16 +377,18 @@
                           g (cos-01 t 1 1.3)
                           b (cos-01 t 2 -0.3) ]
 
-                      (gl-clear!  gl (/ r 3) 0 0.1)
+                      (gl-clear!  gl 0 0 0.1)
+                      (.enable gl glc/blend )
+                      (.blendFunc gl glc/one glc/one)
 
                       (use-program! gl shader)
                       (p/make-active! vb gl shader)
                       (set-unis! gl shader (assoc 
                                              unis 
                                              :u_outer_color (vec4 b r g 1)  
-                                             :u_inner_color (vec4 r g b 1)))
+                                             :u_radii (vec2 (* b 5) (* b 5))))
 
-                      (.drawArrays gl glc/triangle-strip 0 4)
+                      (.drawArrays gl glc/triangles 0 (* 4 10))
 
                       (update-game! t gl camera pads printable))))))
 

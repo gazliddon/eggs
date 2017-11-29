@@ -4,8 +4,7 @@
   (:require
     [eggs.fetch :refer [fetch-files-in-hash]]
     [cljs.core.async :as async ]
-    [thi.ng.geom.gl.shaders :as shaders] 
-    ))
+    [thi.ng.geom.gl.shaders :as shaders] ))
 
 (defn async-load-shader [ gl shader ]
   (go
@@ -22,6 +21,8 @@
                         :fs-file nil
                         :common nil) ]
       (shaders/make-shader-from-spec gl shader ))))
+
+
 
 (def line-shader-spec
   {:vs-file "shaders/line.vs"
@@ -42,13 +43,11 @@
               :u_hardness     [:vec2 [1.0 1.0]]
               :u_radii        :vec2
               :u_inner_color  :vec4
-              :u_outer_color  :vec4
-              :u_dist_mul     [:float 1.0]
-              :uv_mul         :vec2 }
+              :u_outer_color  :vec4 }
 
    :attribs  {:a_index      :int
-              :a_position0  :vec2
-              :a_position1  :vec2
+              :a_position0  :vec3
+              :a_position1  :vec3
               :a_radii      :vec2
               :a_color0     :vec4 
               :a_color1     :vec4 }})
