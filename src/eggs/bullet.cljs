@@ -1,12 +1,15 @@
 (ns eggs.bullet
-  (:require)
+  (:require
+    [thi.ng.math.core :as m :refer [PI HALF_PI TWO_PI]]
+    
+
+    )
   )
 
 
 ;; {{{bullets
 
-(defmethod update-obj :bulllet [{:keys [pos vel] :as b} t pad]
-  )
+
 
 (defprotocol IPredictable
   (get-acc [_ t])

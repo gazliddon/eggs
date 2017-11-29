@@ -9,13 +9,13 @@
 
 ;; TODO all glinfo in this file please
 
-(def gl-type-info 
-  {:int      {:gl-type glc/int :gl-vert-attr-ptr ivert-attrib-ptr  } 
-   :uint      {:gl-type glc/unsigned-int :gl-vert-attr-ptr ivert-attrib-ptr  }
-   :float    {}  
-   :vec2     {}
-   :vec3     {}
-   :vec4     {} })
+; (def gl-type-info 
+;   {:int      {:gl-type glc/int :gl-vert-attr-ptr ivert-attrib-ptr  } 
+;    :uint      {:gl-type glc/unsigned-int :gl-vert-attr-ptr ivert-attrib-ptr  }
+;    :float    {}  
+;    :vec2     {}
+;    :vec3     {}
+;    :vec4     {} })
 
 
 ;; TODO move gl-vert-attr-ptr and all GL bullshit into here from vdef
