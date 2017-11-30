@@ -4,10 +4,11 @@
     [eggs.printables :as pt]
 
     [goog.dom :as gdom] 
+    [cljs.pprint :refer [pprint]]
 
 
+    [util.misc :refer [js-log map-kv]]
     [thi.ng.geom.core :as geom]
-    [thi.ng.geom.triangle :as tri] 
     [thi.ng.geom.quad :as quad] 
     [thi.ng.geom.gl.glmesh :as glmesh]
     [thi.ng.geom.gl.shaders :as shaders] 
@@ -22,6 +23,7 @@
     {:dims (vec2 w h)
      :aspect ar }))
 
+
 (defn gl-context
   ([canvas attribs contexts]
    (let [canvas  (if (string? canvas) (.getElementById js/document canvas) canvas)
@@ -35,7 +37,35 @@
                        (catch js/Error e (recur (next ids))))))]
      (or ctx (println "WebGL not available")))))
 
-(defrecord GLWindow [ctx cam ])
+
+(defprotocol IGLWindow
+  (update-wh! [_]))
+
+(defn get-v2 [elem x y]
+  (vec2 
+    (aget elem x ) 
+    (aget elem y ) ))
+
+(defn set-v2! [elem x y v]
+  (aset elem x (:x v))
+  (aset elem y (:y v)))
+
+(defn get-client-wh [elem] (get-v2 elem "clientWidth" "clientHeight"))
+(defn get-wh [elem] (get-v2 elem "width" "height"))
+(defn set-wh! [elem v] (set-v2! elem "width" "height" v))
+
+(defrecord GLWindow [canvas gl cam ]
+  IGLWindow
+  (update-wh! [this]
+    (let [oc-wh (get-client-wh canvas)
+          wh (get-wh canvas) 
+          c-wh (vec2 512) ]
+      (when (not= c-wh wh)
+        (set-wh! canvas c-wh))
+      (.viewport gl 0 0 (:x c-wh) (:y c-wh))
+      {:dims oc-wh
+       :aspect (/ (:x oc-wh) (:y oc-wh) ) })
+    ))
 
 (def contexts ["webgl2" ])
 
@@ -61,13 +91,12 @@
 
    :attribs  {:position   :vec3 }})
 
-(def triangle (geom/as-mesh (tri/triangle3 [[0.1 0 0] [-0.1 0 0] [0 0.1 0]])
-                            {:mesh (glmesh/gl-mesh 3)}))
-
 (def quad (geom/as-mesh (quad/quad3 [0.1 -0.1 ] [-0.1 -0.1 ] [-0.1 0.1 ] [0.1 0.1 ])
                             {:mesh (glmesh/gl-mesh 3)}))
 
 
 (defn mk-gl-window [canvas-name]
-  (let [ctx (gl-context canvas-name context-default-attribs contexts) ]
-    (->GLWindow ctx nil)))
+  (let [canvas (.getElementById js/document canvas-name)
+        gl (gl-context canvas-name context-default-attribs contexts) ]
+    (map->GLWindow {:gl gl 
+                    :canvas canvas })))

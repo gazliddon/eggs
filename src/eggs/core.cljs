@@ -6,6 +6,8 @@
     [thi.ng.math.macros :as mm])
 
   (:require
+    [thi.ng.geom.cuboid :refer [cuboid]]
+    [thi.ng.geom.sphere :refer [sphere]]
     [util.stats :as stats]
     [thi.ng.xerror.core :as err]
     [thi.ng.geom.gl.webgl.constants :as glc]
@@ -56,6 +58,13 @@
   )
 
 (enable-console-print!)
+
+
+; (defn cb (cub/cuboid))
+
+
+
+
 
 ;;;{{{  Players and stuff
 (defn spin
@@ -181,7 +190,10 @@
 
 (def pads (joypads/mk-pads))
 (defonce gl-window (glw/mk-gl-window "main"))
-(defonce gl-ctx (:ctx gl-window))
+
+
+(js-log gl-window)
+(defonce gl-ctx (:gl gl-window))
 (defonce camera (:cam gl-window))
 (defonce printable (pt/get-printable :quad))
 
@@ -235,13 +247,9 @@
 
 (defn mk-game [config ]
   (c/system-map
-
     :keyboard (kb/mk-keyboard)
-
     :config config
-
     :pads "pads"
-
     :ctx "gl"
 
     :game-loop (c/using 
@@ -266,36 +274,6 @@
 
 ;;{{{ geom for one line
 
-(def a {:a_index      1
-        :a_position0  (vec3 0 0)
-        :a_position1  (vec3 1 1)
-        :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 1 1 1 1)
-        :a_color1     (vec4 1 1 1 1)})
-
-(def b {:a_index      0
-        :a_position0  (vec3 0 0)
-        :a_position1  (vec3 1 1)
-        :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 1 1 1 1)
-        :a_color1     (vec4 1 1 1 1)})
-
-(def c {:a_index      3
-        :a_position0  (vec3 0 0)
-        :a_position1  (vec3 1 1)
-        :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 1 1 1 1)
-        :a_color1     (vec4 1 1 1 1)})
-
-(def d {:a_index      2
-        :a_position0  (vec3 0 0)
-        :a_position1  (vec3 1 1)
-        :a_radii      (vec2 0.1 0.1)
-        :a_color0     (vec4 1 1 1 1)
-        :a_color1     (vec4 1 1 1 1)})
-
-; (def one-line [a b c d ])  
-
 (defprotocol ILines
   (set-base [this new-base])
   (add-line-v [this new-v])
@@ -313,8 +291,8 @@
 
   (add-line-v [this new-v]
    (let [new-base (merge base new-v)
-          new-verts (map #(assoc new-base :a_index %) [1 0 3 0 3 2])]
-      (assoc this :verts(into verts new-verts) :base new-base )) )
+         new-verts (map #(assoc new-base :a_index %) [1 0 3 0 3 2])]
+      (assoc this :verts (into verts new-verts) :base new-base )) )
 
   (add-line-p [this p0 p1]
     (add-line-v this {:a_position0 p0 :a_position1 p1})))
@@ -322,32 +300,30 @@
 (defn mk-line-verts [ base-hash ]
   (map->Verts {:base base-hash :verts []}))
 
-(def sq [
-         (vec3 0 0) (vec3 1 0)
-         (vec3 1 0) (vec3 1 1)
-         (vec3 1 1) (vec3 0 1)
-         (vec3 0 1) (vec3 0 0) ])
+(def sq [(vec3 0 0) (vec3 1 0) (vec3 1 1) (vec3 0 1) (vec3 0 0) ])
 
 (defn add-lines [verts lines]
-  (->
-    (fn [acc [p0 p1]]
-      (add-line-p acc p0 p1))
-    (reduce verts (partition 2 lines) )))
+  (loop [verts verts lines lines ]
+    (if (> (count lines) 1)
+      (recur
+        (add-line-p verts (first lines) (second lines))
+        (rest lines))
+      verts)))
+
+
+(def sp (thi.ng.geom.sphere/sphere 1.8))
+(def cc (map #(g/random-point sp) (range 200)))
+
+(def mm (g/as-mesh sp {:res 25}))
 
 (def many-lines
-  (-> (mk-line-verts {:a_radii  (vec2 0.1 0.1)
-                      :a_color0 (vec4 1 1 1 1)
-                      :a_color1 (vec4 1 1 1 1)})
-      (add-lines sq)
+  (-> (mk-line-verts {:a_radii  (vec2 0.2 0.7)
+                      :a_color0 (vec4 1 0 1 0.5)
+                      :a_color1 (vec4 0 1 0 0.5)})
+      (add-lines (:vertices mm))
       :verts))
 
 ;;}}}
-
-;; test code
-(def gl gl-ctx)
-
-(defn use-program! [gl {:keys [program] :as shader } ]
-  (.useProgram gl program))
 
 (defn set-uni! [gl {:keys [uniforms]} k v]
   (if-let [uni (get uniforms k) ]
@@ -359,57 +335,119 @@
   (doseq [[k v] hsh]
     (set-uni! gl shader k v)))
 
+(defn use-program! [gl {:keys [program] :as shader } ]
+  (.useProgram gl program))
+
+(defn get-cam-pos [t]
+  (let [t (* t 1)
+        x (* 5 (Math/cos t ) )
+        y 1
+        z  -8]
+    (vec3 x y z)))
+
+
+
+(defn gen-tube []
+  (let [rings 10
+        len 10]
+    )
+  )
+
+;; test code
+(def gl gl-ctx)
+
 (def shader-ch (async-load-shader gl line-shader-spec) )
-(def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 10  (count many-lines) ))  )
 
-(def unis {:u_view         mat/M44
-           :u_proj         mat/M44
-           :u_model        mat/M44
-           :u_hardness     (vec2 0.01 0.01)
-           :u_radii        (vec2 1.0 1.0)
-           :u_inner_color  (vec4 1 1 1 1)
-           :u_outer_color  (vec4 1 1 1 1) })
+(def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 80 (count many-lines)))  )
 
+(doseq [[idx v] (map-indexed vector many-lines)]
+  (p/write-buffer! vb idx v))
+
+(defn get-sp-unis [t unis]
+  (let [r (cos-01 t 0 3)
+        g (cos-01 t 1 1.3)
+        b (cos-01 t 2 -0.3) ]
+    (assoc 
+      unis
+      :u_hardness (vec2 b)
+      :u_outer_color (vec4 b r g (+ 0.5 g))  
+      :u_inner_color (vec4 1 1 g r)
+      :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) )))
+
+(defn update! [gl t shader]
+  (stats/begin stats)
+
+  (let [{:keys [aspect]} (glw/update-wh! gl-window)
+        t (/ t 3)
+        r (cos-01 t 0 3)
+        g (cos-01 t 1 1.3)
+        b (cos-01 t 2 -0.3) 
+        cam-pos (get-cam-pos t)
+        cam (cam/perspective-camera {:aspect aspect
+                                     :fov 75
+                                     :eye cam-pos
+                                     :target (vec3 0 0 0)
+                                     :near 0.001
+                                     :far 1000
+                                     }) 
+
+        unis  {:u_proj (:proj cam)
+               :u_view (:view cam)
+               :u_model mat/M44
+               :u_hardness (vec2 b)
+               :u_outer_color (vec4 b r g (/ g 0.5))  
+               :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
+               :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }
+
+        ]
+
+
+    (gl-clear!  gl 0 0 0.1)
+    (.enable gl glc/blend )
+    (.blendFunc gl glc/src-alpha glc/one)
+
+    (use-program! gl shader)
+
+    (p/make-active! vb gl shader)
+
+    (set-unis! gl shader (get-sp-unis t unis) )
+    (.drawArrays gl glc/triangles 0 (count many-lines))
+
+    (set-unis! gl shader (assoc 
+                             (get-sp-unis (+ (* t 0.1) 1.5) unis) 
+                             :u_hardness (vec2 1)
+                             :u_radii (vec2 0.1)
+                             :u_inner_color (vec4 0 1 0 0.5)
+                             :u_model (xlate (vec3 5 0 0 ))))
+
+    (.drawArrays gl glc/triangles 0 (count many-lines))
+
+
+    (doseq [i (range 5)]
+
+
+      (set-unis! gl shader (assoc 
+                             (get-sp-unis (+ (* t (+ 3 i)) i) unis) 
+                             :u_hardness (vec2 1)
+                             ; :u_radii (m/* (vec3 2)  1)
+                             :u_inner_color (vec4 1 0 0 0.5)
+                             :u_model (xlate (vec3 (+ -5 (* i 5))  0 0 ))))
+      (.drawArrays gl glc/triangles 0 (count many-lines))
+      )
+
+
+    (update-game! t gl camera pads printable))
+  (stats/end stats))
 
 
 (go 
   (let [shader (async/<! shader-ch)]
-    (use-program! gl shader )
 
-    ;; set the buffer
-    (doseq [[idx v] (map-indexed vector many-lines)]
-      (p/write-buffer! vb idx v))
+    (use-program! gl shader )
 
     (p/buffer-data! vb gl)
 
-
     (anim/animate (fn [t]
-
-                    (stats/begin stats)
-
-                    (let [r (cos-01 t 0 3)
-                          g (cos-01 t 1 1.3)
-                          b (cos-01 t 2 -0.3) 
-                          wh (glw/get-win-wh )
-                          cam (cam/perspective-camera {:aspect (:aspect wh)}) ]
-
-                      (gl-clear!  gl 0 0 0.1)
-                      (.enable gl glc/blend )
-                      (.blendFunc gl glc/one glc/one)
-
-                      (use-program! gl shader)
-                      (p/make-active! vb gl shader)
-                      (set-unis! gl shader (assoc unis 
-                                                  :u_proj (:proj cam)
-                                                  :u_view (:view cam)
-                                                  :u_model mat/M44
-                                                  :u_outer_color (vec4 b r g 1)  
-                                                  :u_radii (vec2 (* b 5) (* b 5))))
-
-                      (.drawArrays gl glc/triangles 0 (* 4 10))
-
-                      (update-game! t gl camera pads printable))
-
-                    (stats/end stats)))))
+                    (update! gl t shader )))))
 
 ;; vim:set fdm=marker : set nospell :

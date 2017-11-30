@@ -225,7 +225,7 @@
         (select-keys attr-def [:reader :writer])
         {:attr-spec attr-spec
          :attr-def attr-def 
-         :stride-elems (/ stride element-size) 
+         :stride-elems (int (/ stride element-size)) 
          :num-of-elems n 
          :buffer-view (p/mk-array attr-def array-buffer n)}  ))))
 
@@ -277,6 +277,8 @@
 (defn mk-vert-buffer [vert-info n]
   (let [vert-def (memo-mk-vdef vert-info )
         stride (p/get-vert-size vert-def)
+        buffer-size (* n stride)
+        _ (println (str "bsize " buffer-size " v-size " stride " n " n))
         array-buffer (js/ArrayBuffer. (* n stride))
         attr-defs (p/get-attributes vert-def) 
         attr-buffers (map-keys 
