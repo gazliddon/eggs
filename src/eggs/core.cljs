@@ -59,30 +59,15 @@
 
 (enable-console-print!)
 
-
-; (defn cb (cub/cuboid))
-
+(defonce gl-window (glw/mk-gl-window "main"))
 
 
+(js-log gl-window)
+(defonce gl-ctx (:gl gl-window))
+(defonce camera (:cam gl-window))
+(defonce printable (pt/get-printable :quad))
 
-
-;;;{{{  Players and stuff
-(defn spin
-  [t]
-  (->
-    mat/M44 
-    (geom/rotate-y  (/ t 2) )
-    (geom/rotate-z  (* t 2) )))
-
-(defn xlate [v] (-> mat/M44 (g/translate v)))
-
-(defn scale [v] (-> mat/M44 (g/scale v)))
-
-
-(defn draw-printable [ctx printable cam model-mat]
-  (gl/draw-with-shader ctx (assoc-in (cam/apply printable cam)
-                                     [:uniforms :model] model-mat)))
-
+(defonce stats (stats/mk-stats))
 (defn cos-01 [t phase speed]
   (let [t (+ phase (* speed t) ) ]
     (/ (+ 1.0 (Math/cos t)) 2.0)))
@@ -96,181 +81,16 @@
 
   ([gl r g b]
     (gl-clear! gl r g b 1 1)))
+(defn spin
+  [t]
+  (->
+    mat/M44 
+    (geom/rotate-y  (/ t 2) )
+    (geom/rotate-z  (* t 2) )))
 
-(defn draw-frame! [ctx t pos cam printable]
-  (let [ mat (xlate pos) ]
-    (doto ctx
+(defn xlate [v] (-> mat/M44 (g/translate v)))
 
-      
-
-      ; (draw-printable printable cam (xlate pos))
-      
-      )))
-
-;; Draw stuff
-(defmulti draw-obj (fn [o t ] (:type o)) )
-
-(defmethod draw-obj :player [o t]
-  )
-
-;; Update Stuff
-(defmulti update-obj (fn [o t inputs] (:type o)) )
-
-(defmethod update-obj :default [_ _ _]
-  (println "error"))
-
-(def player-cfg
-  {:scale (vec2 0.01 0.01)
-   :max-v 0.35
-   :fric 0.8 }) 
-
-(defn- clamp [v l]
-  (if (> (m/mag v) l )
-    (m/* (m/normalize v) l)
-    v))
-
-(defn add-pos-vel [{:keys [pos vel] :as o} ]
-  (assoc o
-         :vel vel
-         :pos (+ vel pos)))
-
-(defn reset-pos-vel [o]
-  (assoc o :vel (vec2 0 0) :pos (vec2 0 0)))
-
-(defn friction [{:keys [vel] :as o } fr]
-  (assoc o :vel (m/* vel fr)))
-
-(defn towards [{:keys [pos vel] :as o} dir fric max-v]
-  (let [vel (clamp
-                (m/+ dir
-                     (m/* vel fric))
-                max-v)]
-      (assoc o
-             :pos (m/+ vel pos)
-             :vel vel)))
-
-(defmethod update-obj :player [{:keys [pos vel] :as p} t pad]
-
-  (if (joypads/get-fire-2 pad) 
-
-    (assoc p 
-           :vel (vec2 0 0)
-           :pos (vec2 0 0))
-
-    (let [joy-dir (joypads/get-left-stick pad)
-          dir (m/* (:scale player-cfg) joy-dir)
-          v-add (vec2 (/ (Math/cos t) 500 ) 0) ]
-
-      (towards p dir (:fric player-cfg) (:max-v player-cfg)))))
-
-
-(defn mk-player []
-  {:pos (vec2 0 0)
-   :vel (vec2 0 0)
-   :type :player })
-
-
-;;;}}}
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; {{{ Game Update
-
-(defonce player (atom (mk-player)))
-
-(defn update-game! [t ctx cam pads printable ]
-  (let [pad (joypads/poll! pads)]
-    (do
-      (swap! player update-obj t pad)
-      (let [proj (:proj cam)
-            view (:view cam) ]
-        (pt/update-uniforms! ctx :proj proj :view view)
-        (draw-frame! ctx t (:pos @player) cam printable)))))
-
-(def pads (joypads/mk-pads))
-(defonce gl-window (glw/mk-gl-window "main"))
-
-
-(js-log gl-window)
-(defonce gl-ctx (:gl gl-window))
-(defonce camera (:cam gl-window))
-(defonce printable (pt/get-printable :quad))
-
-(defonce stats (stats/mk-stats))
-
-(def timer (timer/mk-timer))
-
-(defn- attach! [obj event-name method]
-  (do 
-    (.addEventListener 
-      (gdom/getWindow)
-      event-name 
-      (fn [event] (method obj event))))
-  obj)
-
-
-(defn on-js-reload [])
-
-
-
-
-
-;; }}}
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; {{{ Some component stuff - todo later when I need a keyboard
-
-(defrecord GameLoop [pad keyboard ctx]
-  c/Lifecycle
-
-  (start [this]
-    this)
-
-  (stop [this]
-    this))
-
-(defn mk-game-loop []
-  (map->GameLoop {}))
-
-(defrecord App [running? config]
-  c/Lifecycle
-
-  (start [this]
-    (if running?
-      this
-      (assoc this :running? true)))
-  
-  (stop [this]
-    (if running?
-      (assoc this :running? false)
-      this)))
-
-(defn mk-game [config ]
-  (c/system-map
-    :keyboard (kb/mk-keyboard)
-    :config config
-    :pads "pads"
-    :ctx "gl"
-
-    :game-loop (c/using 
-                 (mk-game-loop)
-                 [:pads :keboard :ctx :config])
-
-    :app (c/using
-           (map->App {})
-           [:game-loop :config ])))
-
-(defonce sys-atom (atom nil))
-
-(defn stop []
-  (when @sys-atom
-    (c/stop-system @sys-atom)
-    (reset! sys-atom nil)) )
-
-(defn start [])
-(defn restart [])
-
-;; }}}
+(defn scale [v] (-> mat/M44 (g/scale v)))
 
 ;;{{{ geom for one line
 
@@ -318,8 +138,8 @@
 
 (def many-lines
   (-> (mk-line-verts {:a_radii  (vec2 0.2 0.7)
-                      :a_color0 (vec4 1 0 1 0.5)
-                      :a_color1 (vec4 0 1 0 0.5)})
+                      :a_color0 (vec4 1 0 1 0.2)
+                      :a_color1 (vec4 0 1 0 0.2)})
       (add-lines (:vertices mm))
       :verts))
 
@@ -338,20 +158,89 @@
 (defn use-program! [gl {:keys [program] :as shader } ]
   (.useProgram gl program))
 
-(defn get-cam-pos [t]
+
+(defn fmod [a b]
+  (- a (Math/floor (* (/ a b) b ))))
+
+(defn get-cam-pos-1 [t]
   (let [t (* t 1)
         x (* 5 (Math/cos t ) )
         y 1
         z  -8]
-    (vec3 x y z)))
+    {:eye (vec3 x y z) }))
+
+(def cams 
+  {:cam-1 (fn [t]
+            (let [t (fmod t 20000)
+                  x (- (* 10 t) 30)  
+                  y 3
+                  z 1]
+
+              {:eye (vec3 x y z)
+               :fov 30
+               :target (vec3 0)}))
+
+   :cam-2 get-cam-pos-1 })
+
+(def c-cam (atom (keys cams)))
+
+(defn get-current-cam []
+  (get cams (first @c-cam)))
+
+(defn rotate-v [v]
+ (into (vec (rest v)) [ (first v) ]) )
+
+(defn next-cam! []
+  (swap! c-cam rotate-v))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn map-range [t mmin mmax]
+  (let [r (- mmax mmin) ]
+   (+ mmin (* t r)) ))
+
+(defn get-vert [i f]
+  (let [ic (/ i 3.0)
+        z 0
+        y ( * 2  (Math/cos (* f 10)))   
+        x (map-range f -150 150) 
+        r (cos-01 ic 1 10)
+        g (cos-01 ic 3 3)
+        b (cos-01 ic 1 2) ]
+  {:a_position0 (vec3 x y z)
+   :a_position1 (vec3 (+ 0.4 x) y z)
+   :a_color0 (vec4 r g b 1)    
+   :a_color1 (vec4 r g b 0.001) }))
 
 
+(defn make-stars [gl steps]
+  (let [verts (mk-line-verts {:a_radii (vec2 5.9 0.001)}) 
+        verts (-> (fn [acc i]
+                    (let [f (/ i steps )
+                          v (get-vert i f) ]
+                      (add-line-v acc v)))
+                  (reduce verts (range steps))) 
+        v-data (:verts verts)
+        vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 80 (count v-data))) ]
+    (do 
+      (doseq [[idx v] (map-indexed vector v-data)]
+        (p/write-buffer! vb idx v))
+      (p/buffer-data! vb gl)
+      vb)))
 
-(defn gen-tube []
-  (let [rings 10
-        len 10]
-    )
-  )
+(defn draw-stars! [gl t vb shader unis]
+  (let [unis (assoc 
+               unis 
+               :u_hardness (vec2 0.9 0.0001)
+               :u_radii (vec2 1)
+               :u_inner_color (vec4 1 1 1 1)
+               :u_outer_color (vec4 1 1 1 1))]
+    (do 
+      (use-program! gl shader)
+      (p/make-active! vb gl shader)
+      (set-unis! gl shader unis)
+      (.drawArrays gl glc/triangles 0 (:num-of-verts vb)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; test code
 (def gl gl-ctx)
@@ -374,22 +263,26 @@
       :u_inner_color (vec4 1 1 g r)
       :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) )))
 
+(def cam-defaults {:fov 75
+                   :eye (vec3 0 2 0)
+                   :target (vec3 0 0 0)
+                   :near 0.001
+                   :far 1000 })
+
+(def stars-vb (make-stars gl 100))
+
 (defn update! [gl t shader]
+
   (stats/begin stats)
 
   (let [{:keys [aspect]} (glw/update-wh! gl-window)
+        cam-defaults (assoc cam-defaults :aspect aspect)
         t (/ t 3)
         r (cos-01 t 0 3)
         g (cos-01 t 1 1.3)
         b (cos-01 t 2 -0.3) 
-        cam-pos (get-cam-pos t)
-        cam (cam/perspective-camera {:aspect aspect
-                                     :fov 75
-                                     :eye cam-pos
-                                     :target (vec3 0 0 0)
-                                     :near 0.001
-                                     :far 1000
-                                     }) 
+        cam-fn (get-current-cam)
+        cam (cam/perspective-camera (merge cam-defaults (cam-fn t))) 
 
         unis  {:u_proj (:proj cam)
                :u_view (:view cam)
@@ -407,36 +300,18 @@
     (.blendFunc gl glc/src-alpha glc/one)
 
     (use-program! gl shader)
-
     (p/make-active! vb gl shader)
-
-    (set-unis! gl shader (get-sp-unis t unis) )
-    (.drawArrays gl glc/triangles 0 (count many-lines))
-
-    (set-unis! gl shader (assoc 
-                             (get-sp-unis (+ (* t 0.1) 1.5) unis) 
-                             :u_hardness (vec2 1)
-                             :u_radii (vec2 0.1)
-                             :u_inner_color (vec4 0 1 0 0.5)
-                             :u_model (xlate (vec3 5 0 0 ))))
-
-    (.drawArrays gl glc/triangles 0 (count many-lines))
-
-
-    (doseq [i (range 5)]
-
-
+    (doseq [i (range 10)]
       (set-unis! gl shader (assoc 
                              (get-sp-unis (+ (* t (+ 3 i)) i) unis) 
                              :u_hardness (vec2 1)
                              ; :u_radii (m/* (vec3 2)  1)
-                             :u_inner_color (vec4 1 0 0 0.5)
-                             :u_model (xlate (vec3 (+ -5 (* i 5))  0 0 ))))
-      (.drawArrays gl glc/triangles 0 (count many-lines))
-      )
+                             ; :u_inner_color (vec4 1 0 0 0.5)
+                             :u_model (xlate (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 ))))
+      (.drawArrays gl glc/triangles 0 (count many-lines)))
 
 
-    (update-game! t gl camera pads printable))
+    (draw-stars! gl t stars-vb shader unis))
   (stats/end stats))
 
 
@@ -447,7 +322,11 @@
 
     (p/buffer-data! vb gl)
 
-    (anim/animate (fn [t]
-                    (update! gl t shader )))))
+    (defonce doit 
+     (anim/animate (fn [t]
+                    (update! gl t shader ))) 
+      )
+
+    ))
 
 ;; vim:set fdm=marker : set nospell :
