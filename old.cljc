@@ -1,4 +1,25 @@
 
+(comment 
+  (defprotocol IGL
+    (clear! [r g b a d])
+    (blend-additive! [_])
+    (use-program! [_ p])
+    (draw-arrays! [_ prim offset n]))
+
+  (extend-type WebGLRenderingContext 
+    (clear! [this r g b a d]
+      (gl/clear-color-and-depth-buffer gl r g b a d))
+
+    (blend-additive! [gl]
+      (.enable gl glc/blend )
+      (.blendFunc gl glc/src-alpha glc/one))
+
+    (use-program! [gl p]
+      (.useProgram gl p))
+
+    (draw-triangles! [gl offset n]
+      (.drawArrays gl glc/triangles 0 n)) )
+  )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; {{{ Some component stuff - todo later when I need a keyboard
 

@@ -47,9 +47,14 @@
         (when-let [loc (get attribs id)]
           (p/enable-attribute! gl-attr gl loc))))))
 
-(defn mk-vert-buffer [gl attribs n]
-  (let [ret (-> (vdef/mk-vert-buffer attribs n) 
+(defn mk-vert-buffer! [gl attribs verts]
+  (let [n (* 80 ( count verts))
+        vb (-> (vdef/mk-vert-buffer attribs n) 
                 (mk-gl-vert-buffer gl)) ]
-    ret))
+   (do 
+      (doseq [[idx v] (map-indexed vector verts)]
+        (p/write-buffer! vb idx v))
+      (p/buffer-data! vb gl)
+      vb) ))
 
 

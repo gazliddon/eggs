@@ -14,7 +14,7 @@
 
     [eggs.lineshader :refer [async-load-shader line-shader-spec]]
     [eggs.resources :as res]
-    [eggs.glvertbuffer :as glvb]
+    [eggs.glvertbuffer :as glvb :refer [mk-vert-buffer!]]
     [eggs.protocols :as p]
     [eggs.glwindow :as glw]
     [eggs.timer :as timer]
@@ -82,6 +82,7 @@
 
   ([gl r g b]
     (gl-clear! gl r g b 1 1)))
+
 (defn spin
   [t]
   (->
@@ -104,7 +105,6 @@
   (get-verts [this]))
 
 (defrecord Verts [base verts]
-
   ILines
 
   (set-base [this new-base]
@@ -221,6 +221,9 @@
                  \9 :no-cam
                  \0 :no-cam } ]
     (when-let [cam (get mapping ch)] (set-cam! cam))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn map-range [t mmin mmax]
@@ -246,14 +249,9 @@
                     (let [f (/ i steps )
                           v (get-vert i f) ]
                       (add-line-v acc v)))
-                  (reduce verts (range steps))) 
-        v-data (:verts verts)
-        vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 80 (count v-data))) ]
-    (do 
-      (doseq [[idx v] (map-indexed vector v-data)]
-        (p/write-buffer! vb idx v))
-      (p/buffer-data! vb gl)
-      vb)))
+                  (reduce verts (range steps))) ]
+
+        (mk-vert-buffer! gl (:attribs line-shader-spec) (:verts verts))))
 
 (defn draw-stars! [gl t vb shader unis]
   (let [unis (assoc 
@@ -270,15 +268,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+
 ;; test code
 (def gl gl-ctx)
 
 (def shader-ch (async-load-shader gl line-shader-spec) )
 
-(def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 80 (count many-lines)))  )
-(doseq [[idx v] (map-indexed vector many-lines)]
-  (p/write-buffer! vb idx v))
-(p/buffer-data! vb gl)
+(def vb (mk-vert-buffer! gl (:attribs line-shader-spec) many-lines)  )
 
 (defn get-sp-unis [t unis]
   (let [r (cos-01 t 0 3)
@@ -291,13 +288,31 @@
       :u_inner_color (vec4 1 1 g r)
       :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) )))
 
+(def stars-vb (make-stars gl 100))
+
 (def cam-defaults {:fov 75
                    :eye (vec3 0 2 0)
                    :target (vec3 0 0 0)
                    :near 0.001
                    :far 1000 })
 
-(def stars-vb (make-stars gl 100))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn handle-key [ev]
+  (let [k (char  (first  (.-key ev)))]
+    (key->cam! k)))
+
+(defn handle-click [ev]
+  (next-cam!))
+
+(defn single-listen! [o ev-type f]
+  (gev/removeAll o ev-type)
+  (gev/listen o ev-type f))
+
+(defn init! []
+  (single-listen! js/window gev/EventType.KEYPRESS handle-key)
+  (single-listen! js/window gev/EventType.CLICK handle-click))
 
 (defn update! [gl t shader]
 
@@ -318,12 +333,9 @@
                :u_hardness (vec2 b)
                :u_outer_color (vec4 b r g (/ g 0.5))  
                :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
-               :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }
+               :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) } ]
 
-        ]
-
-
-    (gl-clear!  gl 0 0 0.1)
+    (gl-clear! gl 0 0 0.1)
     (.enable gl glc/blend )
     (.blendFunc gl glc/src-alpha glc/one)
 
@@ -342,26 +354,11 @@
     (draw-stars! gl t stars-vb shader unis))
   (stats/end stats))
 
-  (defn handle-key [ev]
-    (let [k (char  (first  (.-key ev)))]
-      (key->cam! k)))
-
-  (defn handle-click [ev]
-    (next-cam!))
-
-  (defn single-listen! [o ev-type f]
-    (gev/removeAll o ev-type)
-    (gev/listen o ev-type f))
 
 (go 
+  (init!)
 
   (let [shader (async/<! shader-ch)]
-
-    (single-listen! js/window gev/EventType.KEYPRESS handle-key)
-    (single-listen! js/window gev/EventType.CLICK handle-click)
-
-    ; (use-program! gl shader)
-
     (defonce doit 
       (anim/animate (fn [t]
                       (update! gl t shader ))))))
