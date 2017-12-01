@@ -1,4 +1,5 @@
 (ns eggs.core
+
   ; {{{ Requires
 
   (:require-macros
@@ -61,27 +62,18 @@
 (enable-console-print!)
 
 (defonce gl-window (glw/mk-gl-window "main"))
-
-
-(js-log gl-window)
-(defonce gl-ctx (:gl gl-window))
-(defonce camera (:cam gl-window))
-(defonce printable (pt/get-printable :quad))
-
+(defonce gl (:gl gl-window))
 (defonce stats (stats/mk-stats))
+
+;; {{{ Helpers
+(defn map-range [t mmin mmax]
+  (let [r (- mmax mmin) ]
+   (+ mmin (* t r)) ))
+
+
 (defn cos-01 [t phase speed]
   (let [t (+ phase (* speed t) ) ]
     (/ (+ 1.0 (Math/cos t)) 2.0)))
-
-(defn gl-clear! 
-  ([gl r g b a d]
-   (gl/clear-color-and-depth-buffer gl r g b a d))
-
-  ([gl r g b a]
-   (gl-clear! gl r g b a 1))
-
-  ([gl r g b]
-    (gl-clear! gl r g b 1 1)))
 
 (defn spin
   [t]
@@ -91,10 +83,11 @@
     (geom/rotate-z  (* t 2) )))
 
 (defn xlate [v] (-> mat/M44 (g/translate v)))
-
 (defn scale [v] (-> mat/M44 (g/scale v)))
 
-;;{{{ geom for one line
+;; }}}
+
+;;{{{ Stuff for making lines
 
 (defprotocol ILines
   (set-base [this new-base])
@@ -121,8 +114,6 @@
 (defn mk-line-verts [ base-hash ]
   (map->Verts {:base base-hash :verts []}))
 
-(def sq [(vec3 0 0) (vec3 1 0) (vec3 1 1) (vec3 0 1) (vec3 0 0) ])
-
 (defn add-lines [verts lines]
   (loop [verts verts lines lines ]
     (if (> (count lines) 1)
@@ -131,21 +122,18 @@
         (rest lines))
       verts)))
 
+;; }}}
 
-(def sp (thi.ng.geom.sphere/sphere 1.8))
-(def cc (map #(g/random-point sp) (range 200)))
+;; {{{ GL helpers
+(defn gl-clear! 
+  ([gl r g b a d]
+   (gl/clear-color-and-depth-buffer gl r g b a d))
 
-(def mm (g/as-mesh sp {:res 25}))
+  ([gl r g b a]
+   (gl-clear! gl r g b a 1))
 
-(def many-lines
-  (-> (mk-line-verts {:a_radii  (vec2 0.2 0.7)
-                      :a_color0 (vec4 1 0 1 0.2)
-                      :a_color1 (vec4 0 1 0 0.2)})
-      (add-lines (:vertices mm))
-      :verts))
-
-;;}}}
-
+  ([gl r g b]
+    (gl-clear! gl r g b 1 1)))
 (defn set-uni! [gl {:keys [uniforms]} k v]
   (if-let [uni (get uniforms k) ]
     (do 
@@ -158,7 +146,19 @@
 
 (defn use-program! [gl {:keys [program] :as shader } ]
   (.useProgram gl program))
+;; }}}
 
+;; {{{ Cameras
+
+(defn mk-current-cam [cam-defaults cam-fn t]
+ (let [cam (-> (merge cam-defaults (cam-fn t))
+                (cam/perspective-camera )) ]
+   cam))
+
+(defn get-vp [cam-defaults cam-fn t]
+  (let [cam (mk-current-cam cam-defaults cam-fn t) ]
+    {:u_proj (:proj cam)
+     :u_view (:view cam) }))
 
 (defn fmod [a b]
   (- a (Math/floor (* (/ a b) b ))))
@@ -221,15 +221,24 @@
                  \9 :no-cam
                  \0 :no-cam } ]
     (when-let [cam (get mapping ch)] (set-cam! cam))))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; }}}
 
+(defn draw-vb-tris! [gl vb shader unis]
+  (do 
+    (use-program! gl shader)
+    (p/make-active! vb gl shader)
+    (set-unis! gl shader unis)
+    (.drawArrays gl glc/triangles 0 (:num-of-verts vb))))
 
+;; TODO macroize this shit
+(defn with-vb [gl vb shader unis func ]
+  (do 
+    (use-program! gl shader)
+    (p/make-active! vb gl shader)
+    (set-unis! gl shader unis)
+    (func)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn map-range [t mmin mmax]
-  (let [r (- mmax mmin) ]
-   (+ mmin (* t r)) ))
-
+;; {{{ Stars
 (defn get-vert [i f]
   (let [ic (/ i 3.0)
         z 0
@@ -260,45 +269,11 @@
                :u_radii (vec2 1)
                :u_inner_color (vec4 1 1 1 1)
                :u_outer_color (vec4 1 1 1 1))]
-    (do 
-      (use-program! gl shader)
-      (p/make-active! vb gl shader)
-      (set-unis! gl shader unis)
-      (.drawArrays gl glc/triangles 0 (:num-of-verts vb)))))
+    (draw-vb-tris! gl vb shader unis )))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; }}}
 
-
-
-;; test code
-(def gl gl-ctx)
-
-(def shader-ch (async-load-shader gl line-shader-spec) )
-
-(def vb (mk-vert-buffer! gl (:attribs line-shader-spec) many-lines)  )
-
-(defn get-sp-unis [t unis]
-  (let [r (cos-01 t 0 3)
-        g (cos-01 t 1 1.3)
-        b (cos-01 t 2 -0.3) ]
-    (assoc 
-      unis
-      :u_hardness (vec2 b)
-      :u_outer_color (vec4 b r g (+ 0.5 g))  
-      :u_inner_color (vec4 1 1 g r)
-      :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) )))
-
-(def stars-vb (make-stars gl 100))
-
-(def cam-defaults {:fov 75
-                   :eye (vec3 0 2 0)
-                   :target (vec3 0 0 0)
-                   :near 0.001
-                   :far 1000 })
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;; {{{ events hacks
 (defn handle-key [ev]
   (let [k (char  (first  (.-key ev)))]
     (key->cam! k)))
@@ -314,49 +289,81 @@
   (single-listen! js/window gev/EventType.KEYPRESS handle-key)
   (single-listen! js/window gev/EventType.CLICK handle-click))
 
-(defn update! [gl t shader]
+;;; }}}
 
+;; test code
+(defn mk-sphere! [gl ]
+  (let [attribs (:attribs line-shader-spec)
+        sp (thi.ng.geom.sphere/sphere 1.8)
+        cc (map #(g/random-point sp) (range 200))
+        mm (g/as-mesh sp {:res 25})
+
+        many-lines (-> (mk-line-verts {:a_radii  (vec2 0.2 0.7)
+                                       :a_color0 (vec4 1 0 1 0.2)
+                                       :a_color1 (vec4 0 1 0 0.2)})
+                       (add-lines (:vertices mm))
+                       :verts) ]
+
+    (mk-vert-buffer! gl attribs many-lines)))
+
+(defn get-sp-unis [t unis]
+  (let [r (cos-01 t 0 3)
+        g (cos-01 t 1 1.3)
+        b (cos-01 t 2 -0.3) ]
+    (assoc 
+      unis
+      :u_hardness (vec2 b)
+      :u_outer_color (vec4 b r g (+ 0.5 g))  
+      :u_inner_color (vec4 1 1 g r)
+      :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) )))
+
+(def vb  (mk-sphere! gl) )
+(def stars-vb (make-stars gl 100))
+
+(def cam-defaults {:fov 75
+                   :eye (vec3 0 2 0)
+                   :target (vec3 0 0 0)
+                   :near 0.001
+                   :far 1000 })
+
+
+(defn update! [gl t shader]
   (stats/begin stats)
 
   (let [{:keys [aspect]} (glw/update-wh! gl-window)
         cam-defaults (assoc cam-defaults :aspect aspect)
+
         t (/ t 3)
         r (cos-01 t 0 3)
         g (cos-01 t 1 1.3)
         b (cos-01 t 2 -0.3) 
-        cam-fn (get-current-cam)
-        cam (cam/perspective-camera (merge cam-defaults (cam-fn t))) 
 
-        unis  {:u_proj (:proj cam)
-               :u_view (:view cam)
-               :u_model mat/M44
-               :u_hardness (vec2 b)
-               :u_outer_color (vec4 b r g (/ g 0.5))  
-               :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
-               :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) } ]
+        unis  (merge 
+                (get-vp cam-defaults (get-current-cam) t ) 
+                {:u_model mat/M44
+                 :u_hardness (vec2 b)
+                 :u_outer_color (vec4 b r g (/ g 0.5))  
+                 :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
+                 :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }) ]
 
     (gl-clear! gl 0 0 0.1)
     (.enable gl glc/blend )
     (.blendFunc gl glc/src-alpha glc/one)
 
-    (use-program! gl shader)
-    (p/make-active! vb gl shader)
     (doseq [i (range 10)]
-      (set-unis! gl shader (assoc 
-                             (get-sp-unis (+ (* t (+ 3 i)) i) unis) 
-                             :u_hardness (vec2 1)
-                             ; :u_radii (m/* (vec3 2)  1)
-                             ; :u_inner_color (vec4 1 0 0 0.5)
-                             :u_model (xlate (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 ))))
-      (.drawArrays gl glc/triangles 0 (count many-lines)))
-
+      (let [unis (assoc 
+                   (get-sp-unis (+ (* t (+ 3 i)) i) unis) 
+                   ; :u_hardness (vec2 1)
+                   :u_model (xlate (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )))]
+        (draw-vb-tris! gl vb shader unis) ))
 
     (draw-stars! gl t stars-vb shader unis))
   (stats/end stats))
 
-
 (go 
   (init!)
+
+  (def shader-ch (async-load-shader gl line-shader-spec) )
 
   (let [shader (async/<! shader-ch)]
     (defonce doit 

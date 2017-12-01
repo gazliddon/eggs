@@ -19,6 +19,7 @@
 
 
 ;; TODO move gl-vert-attr-ptr and all GL bullshit into here from vdef
+
 (defn mk-gl-attr [attr-spec]
   (let [{:keys [normalized? size stride offset gl-vert-attr-ptr gl-type]} attr-spec ]
     (reify p/IGLAttribute 
