@@ -31,6 +31,7 @@
 
     [com.stuartsierra.component :as c]
     [goog.dom :as gdom] 
+    [goog.events :as gev]
 
     [taoensso.timbre :as t
      :refer-macros [log  trace  debug  info  warn  error  fatal  report
@@ -169,6 +170,11 @@
         z  -8]
     {:eye (vec3 x y z) }))
 
+(defn no-cam [t]
+  {:eye (vec3 0 0 -2)
+   :target (vec3 0 0 0)
+   :fov 70 })
+
 (def cams 
   {:cam-1 (fn [t]
             (let [t (fmod t 20000)
@@ -180,7 +186,9 @@
                :fov 30
                :target (vec3 0)}))
 
-   :cam-2 get-cam-pos-1 })
+   :cam-2 get-cam-pos-1 
+
+   :no-cam no-cam })
 
 (def c-cam (atom (keys cams)))
 
@@ -192,6 +200,27 @@
 
 (defn next-cam! []
   (swap! c-cam rotate-v))
+
+(defn set-cam! [cam-key]
+  (if (contains? cams cam-key )
+    (while (not= (first @c-cam) cam-key)
+      (next-cam!))
+    (t/warn (str "couldn't find cam " cam-key " in " @c-cam)) 
+    )
+  )
+
+(defn key->cam! [ch]
+  (let [mapping {\1 :cam-1
+                 \2 :cam-2 
+                 \3 :no-cam
+                 \4 :no-cam
+                 \5 :no-cam
+                 \6 :no-cam
+                 \7 :no-cam
+                 \8 :no-cam
+                 \9 :no-cam
+                 \0 :no-cam } ]
+    (when-let [cam (get mapping ch)] (set-cam! cam))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn map-range [t mmin mmax]
@@ -210,7 +239,6 @@
    :a_position1 (vec3 (+ 0.4 x) y z)
    :a_color0 (vec4 r g b 1)    
    :a_color1 (vec4 r g b 0.001) }))
-
 
 (defn make-stars [gl steps]
   (let [verts (mk-line-verts {:a_radii (vec2 5.9 0.001)}) 
@@ -248,9 +276,9 @@
 (def shader-ch (async-load-shader gl line-shader-spec) )
 
 (def vb (glvb/mk-vert-buffer gl (:attribs line-shader-spec) (* 80 (count many-lines)))  )
-
 (doseq [[idx v] (map-indexed vector many-lines)]
   (p/write-buffer! vb idx v))
+(p/buffer-data! vb gl)
 
 (defn get-sp-unis [t unis]
   (let [r (cos-01 t 0 3)
@@ -314,19 +342,28 @@
     (draw-stars! gl t stars-vb shader unis))
   (stats/end stats))
 
+  (defn handle-key [ev]
+    (let [k (char  (first  (.-key ev)))]
+      (key->cam! k)))
+
+  (defn handle-click [ev]
+    (next-cam!))
+
+  (defn single-listen! [o ev-type f]
+    (gev/removeAll o ev-type)
+    (gev/listen o ev-type f))
 
 (go 
+
   (let [shader (async/<! shader-ch)]
 
-    (use-program! gl shader )
+    (single-listen! js/window gev/EventType.KEYPRESS handle-key)
+    (single-listen! js/window gev/EventType.CLICK handle-click)
 
-    (p/buffer-data! vb gl)
+    ; (use-program! gl shader)
 
     (defonce doit 
-     (anim/animate (fn [t]
-                    (update! gl t shader ))) 
-      )
-
-    ))
+      (anim/animate (fn [t]
+                      (update! gl t shader ))))))
 
 ;; vim:set fdm=marker : set nospell :
