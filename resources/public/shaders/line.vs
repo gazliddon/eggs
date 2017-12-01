@@ -13,8 +13,9 @@ void main() {
     vec4 cols[4] = vec4[] (
     		a_color0,
     		a_color1,
-    		a_color0,
-    		a_color1);
+    		a_color1,
+    		a_color0
+    		);
 
     v_color          = cols[a_index] ;
     v_uv             = vars.mUv ;

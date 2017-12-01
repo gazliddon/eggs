@@ -243,17 +243,20 @@
   (let [ic (/ i 3.0)
         z 0
         y ( * 2  (Math/cos (* f 10)))   
-        x (map-range f -150 150) 
-        r (cos-01 ic 1 10)
+        y2 ( * 2  (Math/cos (* (+ f 0.01) 10)))   
+        x (map-range f -160 160) 
+        r (cos-01 ic 1 3)
         g (cos-01 ic 3 3)
-        b (cos-01 ic 1 2) ]
+        b (cos-01 ic 1 3) 
+        sc 4
+        ]
   {:a_position0 (vec3 x y z)
-   :a_position1 (vec3 (+ 0.4 x) y z)
-   :a_color0 (vec4 r g b 1)    
-   :a_color1 (vec4 r g b 0.001) }))
+   :a_position1 (vec3 (+ 2 x) y2 z)
+   :a_color0 (vec4 (* sc r )(* sc g )(* sc b ) 0.7)
+   :a_color1 (vec4 r g b 0) }))
 
 (defn make-stars [gl steps]
-  (let [verts (mk-line-verts {:a_radii (vec2 5.9 0.001)}) 
+  (let [verts (mk-line-verts {:a_radii (vec2 0.9 0.01)}) 
         verts (-> (fn [acc i]
                     (let [f (/ i steps )
                           v (get-vert i f) ]
@@ -265,10 +268,10 @@
 (defn draw-stars! [gl t vb shader unis]
   (let [unis (assoc 
                unis 
-               :u_hardness (vec2 0.9 0.0001)
-               :u_radii (vec2 1)
-               :u_inner_color (vec4 1 1 1 1)
-               :u_outer_color (vec4 1 1 1 1))]
+               :u_hardness (vec2 0.0009 0.00000001)
+               :u_radii (vec2 0.7 0.0001)
+               :u_inner_color (vec4 2 2 2 1)
+               :u_outer_color (vec4 -1 -1 -1 2))]
     (draw-vb-tris! gl vb shader unis )))
 
 ;; }}}
