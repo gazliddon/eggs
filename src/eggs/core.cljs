@@ -282,7 +282,24 @@
 
 ;; }}}
 
-;; midi!
+;; {{{ Helpers hex printer
+(def n-hex-char "0123456789abcdef")
+(defn get-hex-ch [n] (nth n-hex-char (bit-and 0xf n)))
+(defn hex-str [i]
+  (if (= 0 i)
+    "0x0"
+    (loop [ret "" i (int i)]
+      (if (pos? i)
+        (recur 
+          (.concat (get-hex-ch i) ret)
+          (bit-shift-right i 4))
+        (.concat "0x" ret)))) )
+
+(defn hex-array-str [data]
+  (str  (mapv hex-str data)))
+;; }}}
+
+;; {{{ Midi!
 
 (defn get-access []
   (let [ch (async/chan)]
@@ -307,10 +324,6 @@
       (fn [acc o] (assoc acc (.-name o) o))
       (reduce {} seqq))))
 
-
-(def n-hex-char "0123456789abcdef")
-
-(defn get-hex-ch [n] (nth n-hex-char (bit-and 0xf n)))
 
 (defn add-note [{:keys [data] :as inf } ]
   (assoc inf :note (aget data 1)))
@@ -357,32 +370,26 @@
        (-> msg (add-channel) (assoc :cc-num (aget data 1)
                                     :val    (aget data 2))))) ])
 
-
 (defn parse-midi [data]
   (->
     (fn [acc v]
       (if acc acc (v data)))
     (reduce nil handlers-tab)))
 
-(defn hex-str [i]
-  (if (= 0 i)
-    "0x0"
-    (loop [ret "" i (int i)]
-      (if (pos? i)
-        (recur 
-          (.concat (get-hex-ch i) ret)
-          (bit-shift-right i 4))
-        (.concat "0x" ret)))))
+(def cc->val (atom {}))
 
-(defn hex-array-str [data]
-  (str  (mapv hex-str data)))
+(pprint cc->val)
+
 
 (defn on-midi-in [n]
   (let [time-stamp (.-timeStamp n)
         data  (.-data n) 
         parsed (parse-midi data) ]
     (when parsed 
-      (println (str time-stamp ": " parsed))  )))
+      (cond 
+        (= (:type parsed) :cc) (do 
+                            (swap! cc->val assoc (:cc-num parsed) (:val parsed)))
+        :else nil))))
 
 (defn on-midi-chan-state-change [n])
 
@@ -398,6 +405,7 @@
       (js-log first-in)
       (t/info "****  Initialised MIDI"))
     :hello))
+;;}}}
 
 
 ;; test code
@@ -440,13 +448,15 @@
                  :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
                  :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }) ]
 
-    (doseq [i (range 10)]
-      (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )
-            unis (-> unis
-                     (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
-                     (assoc :u_model (xlate pos)))]
+    (if-let [cc-val (get @cc->val 64)]
+      (doseq [i (range 10)]
+        (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ (/ cc-val 12 ) t)) 0 )
+              unis (-> unis
+                       (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
+                       (assoc :u_model (xlate pos)))]
 
-        (draw-vb-tris! gl vb shader unis) ))
+          (draw-vb-tris! gl vb shader unis) ))  )
+    
 
     (draw-stars! gl t stars-vb shader unis))
 
