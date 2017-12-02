@@ -1,7 +1,5 @@
 (ns eggs.macros
-  (:require 
-    
-    ))
+  )
 
 (defn vb-h [gl vb shader uni]
   '((use-program! gl shader)

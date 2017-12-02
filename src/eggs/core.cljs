@@ -32,7 +32,7 @@
     [util.vec4 :refer [vec4]]
     [util.misc :refer [js-log map-kv]]
 
-    [cljs.core.async :as async ]
+    [cljs.core.async :as async :refer [chan] ]
     [cljs.pprint :refer [pprint]]
 
     [goog.dom :as gdom] 
@@ -282,6 +282,124 @@
 
 ;; }}}
 
+;; midi!
+
+(defn get-access []
+  (let [ch (async/chan)]
+    (doto (.requestMIDIAccess js/navigator)
+      (.then (fn [a] 
+               (go (>! ch a) 
+                   (t/info "Midi access granted")
+                   (async/close! ch))) 
+             (fn [err] (go 
+                         (t/warn "Midi access refused")
+                         (>! ch :failed)
+                         (async/close! ch)))))
+    ch))
+
+(defn midi-seq [acc nm]
+  (let [seqq (aget acc (name nm))]
+    (map (fn [[n o]] o) (es6-iterator-seq (-> seqq .entries)))))
+
+(defn midi-hash [acc nm]
+  (let [seqq (midi-seq acc nm)]
+    (-> 
+      (fn [acc o] (assoc acc (.-name o) o))
+      (reduce {} seqq))))
+
+
+(def n-hex-char "0123456789abcdef")
+
+(defn get-hex-ch [n] (nth n-hex-char (bit-and 0xf n)))
+
+(defn add-note [{:keys [data] :as inf } ]
+  (assoc inf :note (aget data 1)))
+
+(defn add-channel [{:keys [data] :as inf } ]
+  (assoc inf :chan (bit-and 0xf (aget data 0))))
+
+(defn add-velocity [{:keys [data] :as inf } ]
+  (assoc inf :velocity (aget data 2)) )
+
+(defn add-chan-note-vel [m]
+ (-> m (add-note) (add-channel) (add-velocity)) )
+
+(defn midi-inf [data type ]
+  {:type type 
+   :data data })
+
+(defn is-data? [data type lo hi]
+  (let [n (aget data 0)]
+    (when (and (>= n lo) (<= n hi))
+        (midi-inf data type ))))
+
+(def handlers 
+  {:note-down {:range [0x90 0x9f]
+               :handler (fn [m _] (add-chan-note-vel m))}
+
+   :note-off  {:range [0x80 0x8f]
+               :handler (fn [m _] (add-chan-note-vel m)) }
+
+   :cc-msg    {:range [0xb0 0xbf]
+               :handler (fn [m data] (assoc m :cc-num (aget data 1))) } })
+
+(def handlers-tab
+  [ (fn [data]
+     (when-let [msg (is-data? data :note-down 0x90 0x9f)] 
+       (-> msg (add-note) (add-channel) (add-velocity))))
+
+   (fn [data]
+     (when-let [msg (is-data? data :note-off 0x80 0x8f)]
+       (-> msg (add-note) (add-channel) (add-velocity))))
+
+   (fn [data]
+     (when-let [msg (is-data? data :cc 0xb0 0xbf)] 
+       (-> msg (add-channel) (assoc :cc-num (aget data 1)
+                                    :val    (aget data 2))))) ])
+
+
+(defn parse-midi [data]
+  (->
+    (fn [acc v]
+      (if acc acc (v data)))
+    (reduce nil handlers-tab)))
+
+(defn hex-str [i]
+  (if (= 0 i)
+    "0x0"
+    (loop [ret "" i (int i)]
+      (if (pos? i)
+        (recur 
+          (.concat (get-hex-ch i) ret)
+          (bit-shift-right i 4))
+        (.concat "0x" ret)))))
+
+(defn hex-array-str [data]
+  (str  (mapv hex-str data)))
+
+(defn on-midi-in [n]
+  (let [time-stamp (.-timeStamp n)
+        data  (.-data n) 
+        parsed (parse-midi data) ]
+    (when parsed 
+      (println (str time-stamp ": " parsed))  )))
+
+(defn on-midi-chan-state-change [n])
+
+(defonce vv
+  (go 
+    (def access (<! (get-access)))
+    (t/info "****  Starting MIDI")
+    (def first-in (first (midi-seq access :inputs)))
+    (when first-in 
+      (t/info (str "Attaching to midi in " (.-name first-in)))
+      (aset first-in "onmidimessage" on-midi-in)
+      (aset first-in "onstatechange" on-midi-chan-state-change)
+      (js-log first-in)
+      (t/info "****  Initialised MIDI"))
+    :hello))
+
+
 ;; test code
 
 (defonce gl-window (glw/mk-gl-window "main"))
@@ -326,8 +444,7 @@
       (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )
             unis (-> unis
                      (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
-                     (assoc :u_model (xlate pos))
-                     )]
+                     (assoc :u_model (xlate pos)))]
 
         (draw-vb-tris! gl vb shader unis) ))
 
