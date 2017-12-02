@@ -1,5 +1,6 @@
 (ns eggs.protocols 
-  (:require))
+  
+  )
 
 (defprotocol IKeys
   (flush-keys! [_])

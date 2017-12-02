@@ -1,6 +1,7 @@
 (ns user
   (:require
-   [figwheel-sidecar.repl-api :as f]))
+    [figwheel-sidecar.repl-api :as f
+    ]))
 
 ;; user is a namespace that the Clojure runtime looks for and
 ;; loads if its available
@@ -17,7 +18,6 @@
 ;; you will probably want to look at
 ;; tools.namespace https://github.com/clojure/tools.namespace
 ;; and Component https://github.com/stuartsierra/component
-
 
 (defn fig-start
   "This starts the figwheel server and watch based auto-compiler."

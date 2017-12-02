@@ -18,3 +18,11 @@
     (if (= r 0)
       n
       (+ n (- 16 r) ))))
+
+(defn cos-01 [t phase speed]
+  (let [t (+ phase (* speed t) ) ]
+    (/ (+ 1.0 (cos t)) 2.0)))
+
+(defn map-range [t mmin mmax]
+  (let [r (- mmax mmin) ]
+   (+ mmin (* t r)) ))

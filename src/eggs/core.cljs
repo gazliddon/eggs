@@ -4,33 +4,37 @@
 
   (:require-macros
     [cljs.core.async.macros :refer [go go-loop ]] 
-    [thi.ng.math.macros :as mm])
+    [thi.ng.math.macros :as mm]
+    [eggs.macros :refer [with-vb]])
 
   (:require
+
+    [figwheel.client :as fwc]
     [thi.ng.geom.cuboid :refer [cuboid]]
     [thi.ng.geom.sphere :refer [sphere]]
+
     [util.stats :as stats]
+    [util.math :refer [cos sin cos-01 map-range]]
+
     [thi.ng.xerror.core :as err]
     [thi.ng.geom.gl.webgl.constants :as glc]
 
-    [eggs.lineshader :refer [async-load-shader line-shader-spec]]
+    [eggs.lineshader :refer [line-shader-spec]]
+
+    [eggs.shaders :refer [async-load-shader]]
+
     [eggs.resources :as res]
     [eggs.glvertbuffer :as glvb :refer [mk-vert-buffer!]]
     [eggs.protocols :as p]
     [eggs.glwindow :as glw]
-    [eggs.timer :as timer]
-    [eggs.keyboard :as kb]
     [eggs.printables :as pt]
-    [eggs.pad :as joypads]
 
-    [util.vec :as V]
     [util.vec4 :refer [vec4]]
     [util.misc :refer [js-log map-kv]]
 
     [cljs.core.async :as async ]
     [cljs.pprint :refer [pprint]]
 
-    [com.stuartsierra.component :as c]
     [goog.dom :as gdom] 
     [goog.events :as gev]
 
@@ -38,13 +42,12 @@
      :refer-macros [log  trace  debug  info  warn  error  fatal  report
                     logf tracef debugf infof warnf errorf fatalf reportf ]]
 
-
-
     [cljs.spec.alpha :as s ]
     [thi.ng.geom.core :as g]
-    [thi.ng.geom.types]
-    [thi.ng.math.core :as m :refer [PI HALF_PI TWO_PI]]
     [thi.ng.geom.vector :as v :refer [vec2 vec3]]
+
+    [eggs.glhelpers :refer 
+     [gl-clear! set-uni! set-unis! use-program!] ]
 
     [thi.ng.geom.gl.core :as gl]
     [thi.ng.geom.matrix :as mat]
@@ -61,19 +64,7 @@
 
 (enable-console-print!)
 
-(defonce gl-window (glw/mk-gl-window "main"))
-(defonce gl (:gl gl-window))
-(defonce stats (stats/mk-stats))
-
 ;; {{{ Helpers
-(defn map-range [t mmin mmax]
-  (let [r (- mmax mmin) ]
-   (+ mmin (* t r)) ))
-
-
-(defn cos-01 [t phase speed]
-  (let [t (+ phase (* speed t) ) ]
-    (/ (+ 1.0 (Math/cos t)) 2.0)))
 
 (defn spin
   [t]
@@ -122,30 +113,6 @@
         (rest lines))
       verts)))
 
-;; }}}
-
-;; {{{ GL helpers
-(defn gl-clear! 
-  ([gl r g b a d]
-   (gl/clear-color-and-depth-buffer gl r g b a d))
-
-  ([gl r g b a]
-   (gl-clear! gl r g b a 1))
-
-  ([gl r g b]
-    (gl-clear! gl r g b 1 1)))
-(defn set-uni! [gl {:keys [uniforms]} k v]
-  (if-let [uni (get uniforms k) ]
-    (do 
-      ((:setter uni) v))
-    (t/warn (str "unknown uniform " k " val " v))))
-
-(defn set-unis! [gl {:keys [uniforms] :as shader} hsh] 
-  (doseq [[k v] hsh]
-    (set-uni! gl shader k v)))
-
-(defn use-program! [gl {:keys [program] :as shader } ]
-  (.useProgram gl program))
 ;; }}}
 
 ;; {{{ Cameras
@@ -223,6 +190,7 @@
     (when-let [cam (get mapping ch)] (set-cam! cam))))
 ;; }}}
 
+;; {{{ Helpers
 (defn draw-vb-tris! [gl vb shader unis]
   (do 
     (use-program! gl shader)
@@ -230,13 +198,7 @@
     (set-unis! gl shader unis)
     (.drawArrays gl glc/triangles 0 (:num-of-verts vb))))
 
-;; TODO macroize this shit
-(defn with-vb [gl vb shader unis func ]
-  (do 
-    (use-program! gl shader)
-    (p/make-active! vb gl shader)
-    (set-unis! gl shader unis)
-    (func)))
+;;; }}}
 
 ;; {{{ Stars
 (defn get-vert [i f]
@@ -294,7 +256,7 @@
 
 ;;; }}}
 
-;; test code
+;; {{{ Sphere obj 
 (defn mk-sphere! [gl ]
   (let [attribs (:attribs line-shader-spec)
         sp (thi.ng.geom.sphere/sphere 1.8)
@@ -309,19 +271,26 @@
 
     (mk-vert-buffer! gl attribs many-lines)))
 
-(defn get-sp-unis [t unis]
+(defn get-sp-unis [t]
   (let [r (cos-01 t 0 3)
         g (cos-01 t 1 1.3)
         b (cos-01 t 2 -0.3) ]
-    (assoc 
-      unis
-      :u_hardness (vec2 b)
-      :u_outer_color (vec4 b r g (+ 0.5 g))  
-      :u_inner_color (vec4 1 1 g r)
-      :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) )))
+    {:u_hardness (vec2 b)
+     :u_outer_color (vec4 b r g (+ 0.5 g))  
+     :u_inner_color (vec4 1 1 g r)
+     :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }))
+
+;; }}}
+
+;; test code
+
+(defonce gl-window (glw/mk-gl-window "main"))
+(defonce gl (:gl gl-window))
+(defonce stats (stats/mk-stats))
 
 (def vb  (mk-sphere! gl) )
-(def stars-vb (make-stars gl 100))
+
+(def stars-vb (make-stars gl 20))
 
 (def cam-defaults {:fov 75
                    :eye (vec3 0 2 0)
@@ -329,11 +298,15 @@
                    :near 0.001
                    :far 1000 })
 
-
 (defn update! [gl t shader]
   (stats/begin stats)
 
+  (gl-clear! gl 0 0 0.1)
+  (.enable gl glc/blend )
+  (.blendFunc gl glc/src-alpha glc/one)
+
   (let [{:keys [aspect]} (glw/update-wh! gl-window)
+
         cam-defaults (assoc cam-defaults :aspect aspect)
 
         t (/ t 3)
@@ -344,28 +317,26 @@
         unis  (merge 
                 (get-vp cam-defaults (get-current-cam) t ) 
                 {:u_model mat/M44
-                 :u_hardness (vec2 b)
+                 :u_hardness (vec2 (/ b 3))
                  :u_outer_color (vec4 b r g (/ g 0.5))  
                  :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
                  :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }) ]
 
-    (gl-clear! gl 0 0 0.1)
-    (.enable gl glc/blend )
-    (.blendFunc gl glc/src-alpha glc/one)
-
     (doseq [i (range 10)]
-      (let [unis (assoc 
-                   (get-sp-unis (+ (* t (+ 3 i)) i) unis) 
-                   ; :u_hardness (vec2 1)
-                   :u_model (xlate (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )))]
+      (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )
+            unis (-> unis
+                     (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
+                     (assoc :u_model (xlate pos))
+                     )]
+
         (draw-vb-tris! gl vb shader unis) ))
 
     (draw-stars! gl t stars-vb shader unis))
+
   (stats/end stats))
 
 (go 
   (init!)
-
   (def shader-ch (async-load-shader gl line-shader-spec) )
 
   (let [shader (async/<! shader-ch)]
