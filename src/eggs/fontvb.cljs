@@ -25,6 +25,7 @@
 (defn mk-font [font-data]
   (let [verts (mk-line-verts {}) ]
     (reduce-kv 
-      (fn [verts k letter]
-        (add-font-character verts letter))
-      verts font-data)))
+      (fn [[verts line-offsets] k letter]
+        [(add-font-character verts letter)
+         (assoc line-offsets k {:start 0 :num-of-verts 0}) ])
+      [verts {}] font-data)))
