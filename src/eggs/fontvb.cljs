@@ -1,8 +1,11 @@
 (ns eggs.fontvb
   (:require 
+    [cljs.pprint :refer [pprint]]
     [eggs.fontdata :as fdata]
     [eggs.lines :refer [add-lines mk-line-verts]]
     [thi.ng.geom.vector :as v :refer [vec2 vec3]]))
+
+(enable-console-print!)
 
 (defn to-verts [l-chunk]
   (map #(apply vec3 %) l-chunk))
@@ -22,10 +25,16 @@
       (fn [verts l-chunk] (add-lines verts l-chunk))
       (reduce verts lines))))
 
-(defn mk-font [font-data]
-  (let [verts (mk-line-verts {}) ]
+(defn mk-font [font-data hsh]
+  (let [verts (-> (mk-line-verts hsh)
+                  (assoc :frames {})) ]
     (reduce-kv 
-      (fn [[verts line-offsets] k letter]
-        [(add-font-character verts letter)
-         (assoc line-offsets k {:start 0 :num-of-verts 0}) ])
-      [verts {}] font-data)))
+      (fn [verts k letter]
+        (let [start (count (:verts verts))
+              verts (add-font-character verts letter) 
+              num-of-verts (- (count (:verts verts) ) start) ]
+
+          (update-in verts [:frames k] assoc 
+                     :start start 
+                     :num-of-verts num-of-verts)))
+      verts font-data)))
