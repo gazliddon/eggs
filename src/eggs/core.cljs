@@ -8,7 +8,7 @@
     [eggs.macros :refer [with-vb]])
 
   (:require
-
+    [eggs.lines :refer [add-lines mk-line-verts add-line-v]]
     [figwheel.client :as fwc]
     [thi.ng.geom.cuboid :refer [cuboid]]
     [thi.ng.geom.sphere :refer [sphere]]
@@ -22,6 +22,8 @@
     [eggs.lineshader :refer [line-shader-spec]]
 
     [eggs.shaders :refer [async-load-shader]]
+
+    [eggs.fontvb :as font ]
 
     [eggs.resources :as res]
     [eggs.glvertbuffer :as glvb :refer [mk-vert-buffer!]]
@@ -76,46 +78,11 @@
 (defn xlate [v] (-> mat/M44 (g/translate v)))
 (defn scale [v] (-> mat/M44 (g/scale v)))
 
-;; }}}
-
-;;{{{ Stuff for making lines
-
-(defprotocol ILines
-  (set-base [this new-base])
-  (add-line-v [this new-v])
-  (add-line-p [this p0 p1]))
-
-(defprotocol IVerts
-  (get-verts [this]))
-
-(defrecord Verts [base verts]
-  ILines
-
-  (set-base [this new-base]
-    (assoc this :base new-base))
-
-  (add-line-v [this new-v]
-   (let [new-base (merge base new-v)
-         new-verts (map #(assoc new-base :a_index %) [1 0 3 0 3 2])]
-      (assoc this :verts (into verts new-verts) :base new-base )) )
-
-  (add-line-p [this p0 p1]
-    (add-line-v this {:a_position0 p0 :a_position1 p1})))
-
-(defn mk-line-verts [ base-hash ]
-  (map->Verts {:base base-hash :verts []}))
-
-(defn add-lines [verts lines]
-  (loop [verts verts lines lines ]
-    (if (> (count lines) 1)
-      (recur
-        (add-line-p verts (first lines) (second lines))
-        (rest lines))
-      verts)))
 
 ;; }}}
 
 ;; {{{ Cameras
+
 
 (defn mk-current-cam [cam-defaults cam-fn t]
  (let [cam (-> (merge cam-defaults (cam-fn t))
@@ -210,8 +177,8 @@
         r (cos-01 ic 1 3)
         g (cos-01 ic 3 3)
         b (cos-01 ic 1 3) 
-        sc 4
-        ]
+        sc 4 ]
+
   {:a_position0 (vec3 x y z)
    :a_position1 (vec3 (+ 2 x) y2 z)
    :a_color0 (vec4 (* sc r )(* sc g )(* sc b ) 0.7)
@@ -271,7 +238,7 @@
 
     (mk-vert-buffer! gl attribs many-lines)))
 
-(defn get-sp-unis [t]
+(defn get-sphere-uniforms [t]
   (let [r (cos-01 t 0 3)
         g (cos-01 t 1 1.3)
         b (cos-01 t 2 -0.3) ]
@@ -280,23 +247,6 @@
      :u_inner_color (vec4 1 1 g r)
      :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }))
 
-;; }}}
-
-;; {{{ Helpers hex printer
-(def n-hex-char "0123456789abcdef")
-(defn get-hex-ch [n] (nth n-hex-char (bit-and 0xf n)))
-(defn hex-str [i]
-  (if (= 0 i)
-    "0x0"
-    (loop [ret "" i (int i)]
-      (if (pos? i)
-        (recur 
-          (.concat (get-hex-ch i) ret)
-          (bit-shift-right i 4))
-        (.concat "0x" ret)))) )
-
-(defn hex-array-str [data]
-  (str  (mapv hex-str data)))
 ;; }}}
 
 ;; {{{ Midi!
@@ -407,14 +357,16 @@
     :hello))
 ;;}}}
 
-
 ;; test code
 
 (defonce gl-window (glw/mk-gl-window "main"))
 (defonce gl (:gl gl-window))
+
 (defonce stats (stats/mk-stats))
 
-(def vb  (mk-sphere! gl) )
+(def vb (mk-sphere! gl) )
+
+(def font-printer (font/mk-font gl (:attribs line-shader-spec)))
 
 (def stars-vb (make-stars gl 20))
 
@@ -423,6 +375,23 @@
                    :target (vec3 0 0 0)
                    :near 0.001
                    :far 1000 })
+
+(defn get-text-cam [aspect w]
+  {:view (scale (vec3 0.03 0.03 1))
+   :proj (scale (vec3 1.0 ( - 0 aspect ) 1.0))})
+
+(defn draw-text-stuff [font shader cam]
+
+  (font/start-text font shader {:u_proj (:proj cam)
+                                :u_model (xlate (vec3 -30 -12))
+                                :u_view (:view cam)
+
+                                :u_radii (vec2 0.1 0.1) 
+                                :u_hardness (vec2 0.1 0.1)
+                                :u_outer_color (vec4 0 1 0 0.9)
+                                :u_inner_color (vec4 1 1.1 1 0.7) })
+
+  (font/print-it font (vec2 0 0) (vec4 1 1 1 1) "HELLO"))
 
 (defn update! [gl t shader]
   (stats/begin stats)
@@ -447,28 +416,28 @@
                  :u_outer_color (vec4 b r g (/ g 0.5))  
                  :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
                  :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }) ]
-
-    (if-let [cc-val (get @cc->val 64)]
-      (doseq [i (range 10)]
-        (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ (/ cc-val 12 ) t)) 0 )
-              unis (-> unis
-                       (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
-                       (assoc :u_model (xlate pos)))]
-
-          (draw-vb-tris! gl vb shader unis) ))  )
     
+    (doseq [i (range 10)]
+      (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )
+            unis (-> unis
+                     (merge (get-sphere-uniforms (+ (* t (+ 3 i)) i) ))
+                     (assoc :u_model (xlate pos)))]
 
-    (draw-stars! gl t stars-vb shader unis))
+        (draw-vb-tris! gl vb shader unis) ))
+
+    (draw-stars! gl t stars-vb shader unis)
+    (draw-text-stuff font-printer shader (get-text-cam aspect 100)))
 
   (stats/end stats))
 
 (go 
   (init!)
+
   (def shader-ch (async-load-shader gl line-shader-spec) )
 
   (let [shader (async/<! shader-ch)]
     (defonce doit 
       (anim/animate (fn [t]
-                      (update! gl t shader ))))))
+                      (update! gl t shader))))))
 
 ;; vim:set fdm=marker : set nospell :
