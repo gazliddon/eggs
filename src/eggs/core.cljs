@@ -447,15 +447,14 @@
                  :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
                  :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }) ]
 
-    (if-let [cc-val (get @cc->val 64)]
-      (doseq [i (range 10)]
-        (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ (/ cc-val 12 ) t)) 0 )
-              unis (-> unis
-                       (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
-                       (assoc :u_model (xlate pos)))]
-
-          (draw-vb-tris! gl vb shader unis) ))  )
     
+    (doseq [i (range 10)]
+      (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )
+            unis (-> unis
+                     (merge (get-sp-unis (+ (* t (+ 3 i)) i) ))
+                     (assoc :u_model (xlate pos)))]
+
+        (draw-vb-tris! gl vb shader unis) ))
 
     (draw-stars! gl t stars-vb shader unis))
 
