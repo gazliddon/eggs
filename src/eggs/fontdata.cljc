@@ -1,10 +1,15 @@
 (ns eggs.fontdata 
   )
 
-(def test-font 
+(def test-font-data
   {:A [ -2 3  -2 -1  0 -3  2 -1  2 3  99  -2 0  2 0  999 ]
    :B [ -2 3 -2 -3 1 -3 2 -2 2 -1 1 0 2 1 2 2 1 3 -2 3 99 -2 0 1 0 999 ]
    :C [ 2 2 1 3 -1 3 -2 2 -2 -2 -1 -3 1 -3 2 -2 999 ] })
+
+(def test-vec-font
+  {:line-height 10 
+   :space-size 3
+   :font-table test-font-data})
 
 (def vec-font {:A           [ -2 3  -2 -1  0 -3  2 -1  2 3  99  -2 0  2 0  999 ]
 

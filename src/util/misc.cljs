@@ -44,3 +44,21 @@
     (not (satisfies? cljs.core/IComparable a)) false
     (not (satisfies? cljs.core/IComparable b)) false
     :else (zero? (compare-indexed a b))))
+
+
+;; {{{ Helpers hex printer
+(def n-hex-char "0123456789abcdef")
+(defn get-hex-ch [n] (nth n-hex-char (bit-and 0xf n)))
+(defn hex-str [i]
+  (if (= 0 i)
+    "0x0"
+    (loop [ret "" i (int i)]
+      (if (pos? i)
+        (recur 
+          (.concat (get-hex-ch i) ret)
+          (bit-shift-right i 4))
+        (.concat "0x" ret)))) )
+
+(defn hex-array-str [data]
+  (str  (mapv hex-str data)))
+;; }}}
