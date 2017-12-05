@@ -380,18 +380,26 @@
   {:view (scale (vec3 0.03 0.03 1))
    :proj (scale (vec3 1.0 ( - 0 aspect ) 1.0))})
 
-(defn draw-text-stuff [font shader cam]
+(defn draw-text-stuff [font shader cam t]
+  (let [cfun (fn [o s]
+               (let [t (* s (+ o t))]
+                 (vec4 (cos-01 t 0 3)
+                       (cos-01 t 1 1.3)
+                       (cos-01 t 2 -0.3) 0.7) ))
+        raw-rad (* 0.8 (cos-01 t 0 10 ))
+        rad (if (<  raw-rad 0.2 ) 0.08 raw-rad)]
 
   (font/start-text font shader {:u_proj (:proj cam)
-                                :u_model (xlate (vec3 -30 -12))
                                 :u_view (:view cam)
-
-                                :u_radii (vec2 0.1 0.1) 
-                                :u_hardness (vec2 0.1 0.1)
+                                :u_radii (vec2  rad)
+                                :u_hardness (vec2 0.000001)
                                 :u_outer_color (vec4 0 1 0 0.9)
                                 :u_inner_color (vec4 1 1.1 1 0.7) })
 
-  (font/print-it font (vec2 0 0) (vec4 1 1 1 1) "HELLO"))
+  (font/print-it font (vec2 -30 -10) (cfun 0 7) :G) 
+  (font/print-it font (vec2 -25 -10) (cfun 1 6) :A) 
+  (font/print-it font (vec2 -20 -10) (cfun 2 8) :Z)  
+  (font/print-it font (vec2 -15 -10) (vec4 (cos-01 t 0 10)(cos-01 t 0 10)(cos-01 t 0 10)(cos-01 t 0 10)) :exclamation )))
 
 (defn update! [gl t shader]
   (stats/begin stats)
@@ -426,7 +434,7 @@
         (draw-vb-tris! gl vb shader unis) ))
 
     (draw-stars! gl t stars-vb shader unis)
-    (draw-text-stuff font-printer shader (get-text-cam aspect 100)))
+    (draw-text-stuff font-printer shader (get-text-cam aspect 100) t))
 
   (stats/end stats))
 
