@@ -1,16 +1,8 @@
 (ns eggs.bullet
   (:require
-    [thi.ng.math.core :as m :refer [PI HALF_PI TWO_PI]]
-    
-
-    )
-  )
-
+    [thi.ng.math.core :as m :refer [PI HALF_PI TWO_PI]]))
 
 ;; {{{bullets
-
-
-
 (defprotocol IPredictable
   (get-acc [_ t])
   (get-pos [_ t])
@@ -22,13 +14,10 @@
 (defprotocol IAgeable 
   (get-age [_ t]))
 
-
 (defrecord Bullet [created-at pos vel type]
   IDraw
   (draw [this ctx t]
-    (let [pos (get-pos this t)]
-      )
-    )
+    (let [pos (get-pos this t)]))
 
   IAgeable
   (get-age [_ t]

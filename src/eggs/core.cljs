@@ -392,9 +392,8 @@
   (font/start-text font shader {:u_proj (:proj cam)
                                 :u_view (:view cam)
                                 :u_radii (vec2  rad)
-                                :u_hardness (vec2 0.000001)
-                                :u_outer_color (vec4 0 1 0 0.9)
-                                :u_inner_color (vec4 1 1.1 1 0.7) })
+                                :u_hardness (vec2 0.0001)
+                                })
 
   (font/print-it font (vec2 -30 -10) (cfun 0 7) :G) 
   (font/print-it font (vec2 -25 -10) (cfun 1 6) :A) 
