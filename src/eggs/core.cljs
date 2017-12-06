@@ -447,4 +447,6 @@
       (anim/animate (fn [t]
                       (update! gl t shader))))))
 
+(.-RGBA32F gl)
+
 ;; vim:set fdm=marker : set nospell :
