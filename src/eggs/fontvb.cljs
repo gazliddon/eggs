@@ -22,22 +22,9 @@
 
 (defn to-verts [l-chunk] (map #(apply vec3 %) l-chunk))
 
-;; 99 move to a new pos / 999 = end of data
-(def i->token {99 :marker 999 :marker} )
-
-(defn mk-letter [l-vec]
-  (->>
-    l-vec
-    (map #(get i->token % %))
-    (partition-by keyword?)
-    (remove (fn [[k]] (keyword? k)) )
-    ;; end up with a vector of vectors of line strips
-    (map #(partition 2 %))))
-
 (defn add-font-character [verts nm lines] 
   (let [start (count (:verts verts))
-        new-verts (->> (mk-letter lines)
-                       (map to-verts)
+        new-verts (->> (map to-verts lines)
                        (reduce add-lines verts))
         num-of-verts (- (count (:verts new-verts) ) start)  ]
 
@@ -88,7 +75,7 @@
   (let [base-vert {:a_radii  (vec2 0.2 0.2)
                    :a_color0 (vec4 1 1 1 0.8)
                    :a_color1 (vec4 1 1 1 0.8)}
-        {:keys [frames verts]} (mk-font-verts fdata/vec-font base-vert) ]
+        {:keys [frames verts]} (mk-font-verts fdata/vec-font-line-strips base-vert) ]
 
     (map->Font {:gl gl
 

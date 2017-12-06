@@ -1,15 +1,21 @@
 (ns eggs.fontdata 
+  (:require 
+    [util.misc :refer [map-keys] ]
+    )
   )
 
-(def test-font-data
-  {:A [ -2 3  -2 -1  0 -3  2 -1  2 3  99  -2 0  2 0  999 ]
-   :B [ -2 3 -2 -3 1 -3 2 -2 2 -1 1 0 2 1 2 2 1 3 -2 3 99 -2 0 1 0 999 ]
-   :C [ 2 2 1 3 -1 3 -2 2 -2 -2 -1 -3 1 -3 2 -2 999 ] })
+(def i->token {99 :marker 999 :marker} )
 
-(def test-vec-font
-  {:line-height 10 
-   :space-size 3
-   :font-table test-font-data})
+(defn mk-letter 
+  "takes a whacky format letter and turns it into line strips"
+  [l-vec]
+  (->>
+    l-vec
+    (map #(get i->token % %))
+    (partition-by keyword?)
+    (remove (fn [[k]] (keyword? k)) )
+    ;; end up with a vector of vectors of line strips
+    (map #(partition 2 %))))
 
 (def vec-font {:A           [ -2 3  -2 -1  0 -3  2 -1  2 3  99  -2 0  2 0  999 ]
 
@@ -167,3 +173,8 @@
                :base        [ 1.0 3.0 -1.0 3.0 -2.0 2.0 99 -2.0 2.0 -2.0 0.0 -1.0 -1.0 99 
                              -1.0 -1.0 1.0 -1.0 2.0 0.0 99 1.0 3.0 2.0 2.0 999 ]
                })
+
+(def vec-font-line-strips 
+  (map-keys mk-letter vec-font))
+
+
