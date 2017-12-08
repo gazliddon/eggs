@@ -8,6 +8,7 @@
     [eggs.macros :refer [with-vb]])
 
   (:require
+    [eggs.fastlines :as flines]
     [eggs.lines :refer [add-lines mk-line-verts add-line-v]]
     [figwheel.client :as fwc]
     [thi.ng.geom.cuboid :refer [cuboid]]
@@ -437,6 +438,10 @@
 
   (stats/end stats))
 
+
+(def ln (flines/mk-lines-as-texture gl))
+(pprint ln)
+
 (go 
   (init!)
 
@@ -447,6 +452,5 @@
       (anim/animate (fn [t]
                       (update! gl t shader))))))
 
-(.-RGBA32F gl)
 
 ;; vim:set fdm=marker : set nospell :

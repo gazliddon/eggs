@@ -17,6 +17,12 @@
     ;; end up with a vector of vectors of line strips
     (map #(partition 2 %))))
 
+(def test-vec-font 
+  {:A           [ -2 3  -2 -1  0 -3  2 -1  2 3  99  -2 0  2 0  999 ]
+   :B           [ -2 3 -2 -3 1 -3 2 -2 2 -1 1 0 2 1 2 2 1 3 -2 3 99 -2 0 1 0 999 ]
+   :C           [ 2 2 1 3 -1 3 -2 2 -2 -2 -1 -3 1 -3 2 -2 999 ]
+   :D           [ -2 3 -2 -3 1 -3 2 -2 2 2 1 3 -2 3 999 ] })
+
 (def vec-font {:A           [ -2 3  -2 -1  0 -3  2 -1  2 3  99  -2 0  2 0  999 ]
 
                :B           [ -2 3 -2 -3 1 -3 2 -2 2 -1 1 0 2 1 2 2 1 3 -2 3 99 -2 0 1 0 999 ]
@@ -176,5 +182,8 @@
 
 (def vec-font-line-strips 
   (map-keys mk-letter vec-font))
+
+(def test-vec-font-line-strips
+  (map-keys mk-letter test-vec-font))
 
 
