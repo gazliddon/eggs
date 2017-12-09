@@ -1,7 +1,10 @@
 (ns eggs.fastlines
   (:require
+    [cljs.pprint :refer [pprint]]
     [util.misc :refer [map-keys]]
     [eggs.fontdata :refer [test-vec-font-line-strips]]
+    [thi.ng.dstruct.streams :as streams]
+    [thi.ng.geom.vector :as v :refer [vec2 vec3]]
     [thi.ng.geom.gl.webgl.constants :as glc]))
 
 (defprotocol ITexture 
@@ -108,38 +111,39 @@
   (->> mp vals (apply max-key count) count ) )
 
 (defn write-lines! [buffer offset verts]
-  (doseq [i (range (count verts))]
-    (let [dest-idx (+ offset (* 4 i) )]
-      (comment .set buffer (nth verts i)))))
+  (doseq [i (range (count verts ))]
+    (let [dest-idx (+ offset (* 2 i) )
+          src-vert (nth verts i) ]
+      (do 
+        (aset buffer dest-idx (first src-vert) )
+        (aset buffer (+ dest-idx 1) (second src-vert) )))))
 
-(defn mk-line-bitmap [line-strips]
-  (let [elems-per-pix 4
+(defn mk-line-bitmap [letters]
+  (let [letters-v (into [] letters)
+        elems-per-pix 4
         bytes-per-elem 4
-        letters  (into [](map-keys letter->lines line-strips))
         w (* (largest-col-in-map letters) elems-per-pix) 
         h (count letters)
         array-buffer (js/ArrayBuffer. (* h w bytes-per-elem) )
         float-buffer (js/Float32Array. array-buffer) 
-
         lines-info (loop [y 0 lines-info {} ]
-                   (if (= y h)
-                     lines-info
-                     (let [[letter-key letter] (nth letters y)
-                           let-rec   {:ypos y :num-of-lines (count letter) } ]
+                     (if (= y h)
+                       lines-info
+                       (let [[letter-key letter] (nth letters-v y)
 
-                       (write-lines! float-buffer (* y w) letter)
-
-                       (recur (inc y)
-                              (assoc lines-info letter-key let-rec))))) ]
-    {:w w :h h
-     :buffer     array-buffer 
+                             let-rec   {:ypos y :num-of-lines (count letter) } ]
+                         (write-lines! float-buffer (* y w) letter)
+                         (recur (inc y)
+                                (assoc lines-info letter-key let-rec))))) ]
+    {:w w 
+     :h h
+     :buffer       array-buffer 
      :float-buffer float-buffer
-     :lines-info  lines-info}))
+     :lines-info   lines-info}))
 
 (defn mk-lines-as-texture [gl]
   (let [letters (map-keys letter->lines test-vec-font-line-strips)
         {:keys [w h float-buffer] :as bit-map} (mk-line-bitmap letters )
-        _ (println (.-length float-buffer))
         texture (mk-texture gl (/ w 4) h float-buffer
                 {:int-format (.-RGBA32F gl)
                  :src-type   (.-FLOAT gl)
@@ -148,6 +152,23 @@
                  :wrap       glc/clamp-to-edge })]
   {:texture texture 
    :lines-info (:lines-info bit-map) }))
+
+(comment 
+  "vert formats now
+  x y 32 32
+  spr num 16
+  palette 16  
+  RG32UI 
+  x = x
+  y = y
+  z = sprnum
+  w = palette 
+  divisor = 6
+  print w  * verts per letter
+  "
+  {:a_pos       :vec2 
+   :a_spr       :int
+   :a_pal_flags :int })
 
 
 

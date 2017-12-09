@@ -329,9 +329,6 @@
 
 (def cc->val (atom {}))
 
-(pprint cc->val)
-
-
 (defn on-midi-in [n]
   (let [time-stamp (.-timeStamp n)
         data  (.-data n) 
@@ -353,7 +350,6 @@
       (t/info (str "Attaching to midi in " (.-name first-in)))
       (aset first-in "onmidimessage" on-midi-in)
       (aset first-in "onstatechange" on-midi-chan-state-change)
-      (js-log first-in)
       (t/info "****  Initialised MIDI"))
     :hello))
 ;;}}}
@@ -437,9 +433,6 @@
     (draw-text-stuff font-printer shader (get-text-cam aspect 100) t))
 
   (stats/end stats))
-
-(def ln (flines/mk-lines-as-texture gl))
-(pprint ln)
 
 (go 
   (init!)
