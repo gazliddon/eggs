@@ -278,7 +278,6 @@
   (let [vert-def (memo-mk-vdef vert-info )
         stride (p/get-vert-size vert-def)
         buffer-size (* n stride)
-        _ (println (str "bsize " buffer-size " v-size " stride " n " n))
         array-buffer (js/ArrayBuffer. (* n stride))
         attr-defs (p/get-attributes vert-def) 
         attr-buffers (map-keys 
@@ -286,7 +285,6 @@
                          (mk-attr-bufffer attr-def vert-def array-buffer n))
                        attr-defs)]
 
-    (t/info (str "creating buffer: " n " elements") )
 
     (map->VertBuffer {:attr-buffers attr-buffers
                       :vert-def vert-def 

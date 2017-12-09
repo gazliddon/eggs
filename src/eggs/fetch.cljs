@@ -23,7 +23,6 @@
                               (t/info (str "loaded " url))
                               (go (async/>! ch res)
                                   (async/close! ch)
-                                  (t/info (str "closed " url ))
                                   ))))
        (.send url "GET")) 
      ch)))
@@ -36,14 +35,11 @@
      :data ( async/<! (fetch url)) }))
 
 (defn fetch-files-in-hash [hsh]
-  (t/info "about to load hash")
   (go 
     (loop [to-load (mapv #(apply tagged-fetch %) hsh)
            loaded {}]
       (if (empty? to-load)
-        (do 
-          (t/info (str "hash loaded: " (keys hsh)))
-          loaded )
+        loaded
         (let [[{:keys [id data] :as v} c] (async/alts! to-load) ]
           (recur (filterv #(not= c %) to-load)
                  (assoc loaded id data )))))))
