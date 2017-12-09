@@ -438,7 +438,6 @@
 
   (stats/end stats))
 
-
 (def ln (flines/mk-lines-as-texture gl))
 (pprint ln)
 
