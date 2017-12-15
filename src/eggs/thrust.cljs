@@ -5,10 +5,8 @@
     [thi.ng.geom.vector :as v :refer [vec2 vec3]]))
 
 ;; Generic
-
-(defn bool->01
-  "1.0 if true 0.0 if false"
-  [b] (if b 1.0 0.0))
+(defn bool->01 
+  "1.0 if true 0.0 if false" [b] (if b 1.0 0.0))
 
 (defn bools->twonit
   "true a = -1, true b = 1, true a b 0, false a b 0"
@@ -20,9 +18,11 @@
 ;; stolen from https://www.gamedev.net/forums/topic/183827-c64-quotthrustquot-style-physics/
 
 (defn update-phys [{:keys [forces mass vel pos acc] :as this} dt ]
-  (let [acc     (m/+ acc (m/* forces mass))
-        acc-dt  (m/* acc dt)
-        pos     (m/+ pos (m/* dt vel) (m/* acc-dt dt ))
+  (let [dt-v2   (vec2 dt)
+        mass-v2 (vec2 mass)
+        acc     (m/+ acc (m/* forces mass-v2))
+        acc-dt  (m/* acc dt-v2)
+        pos     (m/+ pos (m/* dt-v2 vel) (m/* acc-dt dt-v2 ))
         vel     (m/+ vel acc-dt ) ]
 
     (assoc this 
@@ -37,7 +37,14 @@
          :acc    zero-v2
          :vel    zero-v2
          :pos    zero-v2
-         :mass   1))
+         :mass   1.0))
+
+;; TBD
+
+; (defprotocol IPhys
+;   (update-phys [this dt])
+;   (add-force [this f])
+;   (add-acc [this acc]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -50,9 +57,10 @@
    :grav-v (vec2 0  -9.81 )
    :angle-v 1.0 })
 
-(defrecord Ship [forces acc vel pos angle mass angle]
+(defrecord Ship [forces acc vel pos angle mass ]
   IObj
   (update-obj [this {:keys [left right fire] :as input} dt ]
+    
     (let [{:keys [thrust-v grav-v angle-v] } ship-vals
           rotation (* angle-v (bools->twonit left right))
           angle    (+ angle (* dt rotation)) 
@@ -61,9 +69,7 @@
           (assoc :acc    (m/+ acc grav-v)
                  :angle  angle
                  :forces (m/+ forces (m/* dir (* (bool->01 fire) thrust-v))))
-          (update-phys dt)))
-    )
-  )
+          (update-phys dt)))))
 
 (defn mk-ship []
   (->

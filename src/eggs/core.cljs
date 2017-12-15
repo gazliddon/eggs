@@ -9,6 +9,7 @@
 
   (:require
     [eggs.fastlines :as flines :refer [mk-line-spr-ch]]
+    [eggs.thrust :refer [mk-ship] :as thrust]
 
     [eggs.lines :refer [add-lines mk-line-verts add-line-v]]
     [figwheel.client :as fwc]
@@ -378,6 +379,8 @@
   {:view (scale (vec3 0.03 0.03 1))
    :proj (scale (vec3 1.0 ( - 0 aspect ) 1.0))})
 
+
+
 (defn draw-text-stuff [font shader cam t]
   (let [cfun (fn [o s]
                (let [t (* s (+ o t))]
@@ -398,7 +401,24 @@
   (font/print-it font (vec2 -20 -10) (cfun 2 8) :Z)  
   (font/print-it font (vec2 -15 -10) (vec4 (cos-01 t 0 10)(cos-01 t 0 10)(cos-01 t 0 10)(cos-01 t 0 10)) :exclamation )))
 
+
+(def ship (atom (mk-ship) ))
+
+(defn get-ship-cam [aspect w]
+  {:view (scale (vec3 (/ 1 w) (/ 1 w) 1))
+   :proj (scale (vec3 1.0 aspect 1.0))})
+
+(defn draw-ship [{:keys [pos angle]} font shader cam]
+  (do 
+    (font/start-text font shader {:u_proj (:proj cam)
+                                :u_view (:view cam)
+                                :u_model (-> mat/M44 (geom/rotate-z angle))
+                                :u_radii (vec2  0.05)
+                                :u_hardness (vec2 0.0001) })
+    (font/print-it font pos (vec4 1 1 1 1) :A) ))
+
 (defn update! [gl t shader]
+
   (stats/begin stats)
 
   (gl-clear! gl 0 0 0.1)
@@ -422,7 +442,7 @@
                  :u_inner_color (vec4 1 0 g (* 0.5  (- 1.0 g)))
                  :u_radii (vec2 (* 1.9 (Math/cos t) )  (* 2.0 r)) }) ]
     
-    (doseq [i (range 10)]
+    (comment doseq [i (range 10)]
       (let [pos (vec3 (+ -5 (* i 5)) (Math/cos (+ i t)) 0 )
             unis (-> unis
                      (merge (get-sphere-uniforms (+ (* t (+ 3 i)) i) ))
@@ -431,7 +451,18 @@
         (draw-vb-tris! gl vb shader unis) ))
 
     (draw-stars! gl t stars-vb shader unis)
-    (draw-text-stuff font-printer shader (get-text-cam aspect 100) t))
+
+    (draw-text-stuff font-printer shader (get-text-cam aspect 100) t)
+
+    (let [input {:fire false 
+                 :left false 
+                 :right false }
+          dt (/ 1.0 60.0)
+          new-ship (thrust/update-obj @ship input dt) ]
+      (do 
+        (reset! ship new-ship)
+        (draw-ship new-ship font-printer shader (get-ship-cam aspect 200))
+        )))
 
   (stats/end stats))
 

@@ -11,7 +11,7 @@
    (do
      (defn sqrt [^double a] (.sqrt js/Math a))
      (defn cos [^double a] (.cos js/Math a))
-     (defn sin [^double a] (.sun js/Math a))))
+     (defn sin [^double a] (.sin js/Math a))))
 
 (defn align [alignment n]
   (let [r (rem n 16)]
