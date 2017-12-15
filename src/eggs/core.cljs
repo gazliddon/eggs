@@ -213,11 +213,13 @@
 
 (def keys-atom (atom {:left false 
                  :right false
-                 :fire false }))
+                 :fire false 
+                 :reset false }))
 
 (def code->key {"z" :left 
                 "x" :right
-                "m" :fire })
+                "m" :fire 
+                "q" :reset })
 
 (defn ev->key [ev]
   (let [kv (.-key ev) ]
@@ -434,8 +436,10 @@
     (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z angle)) ]
       (font/start-text font shader {:u_proj (:proj cam)
                                     :u_view (:view cam)
-                                    :u_radii (vec2  0.05)
-                                    :u_hardness (vec2 0.0001) })
+                                    :u_radii (vec2  0.09)
+                                    :u_inner_color (vec4 1 1 1 0.2)
+                                    :u_outer_color (vec4 1 1 1 0.2)
+                                    :u_hardness (vec2 0.0000001) })
 
       (font/print-it-mat font model (vec4 1 1 1 1) :A))))
 
@@ -479,8 +483,10 @@
           dt (/ 1.0 60.0)
           new-ship (thrust/update-obj @ship input dt) ]
       (do 
-        (reset! ship new-ship)
-        (draw-ship new-ship font-printer shader (get-ship-cam aspect 100))
+        (if (:reset @keys-atom )
+          (reset! ship (mk-ship))
+          (reset! ship new-ship))
+        (draw-ship new-ship font-printer shader (get-ship-cam aspect 50))
         )))
 
   (stats/end stats))
