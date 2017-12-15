@@ -31,7 +31,18 @@
            :vel vel
            :pos pos)))
 
-(defrecord Ship [forces acc vel pos angle mass angle])
+(defn init-phys [this]
+  (assoc this 
+         :forces zero-v2
+         :acc    zero-v2
+         :vel    zero-v2
+         :pos    zero-v2
+         :mass   1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defprotocol IObj
+  (update-obj [this input dt]))
 
 ;; constants
 (def ship-vals 
@@ -39,25 +50,25 @@
    :grav-v (vec2 0  -9.81 )
    :angle-v 1.0 })
 
-(defn update-ship [{:keys [angle forces acc] :as this} dt {:keys [left right fire] :as pad} ]
-  (let [{:keys [thrust-v grav-v angle-v] } ship-vals
-        rotation (* angle-v (bools->twonit left right))
-        angle    (+ angle (* dt rotation)) 
-        dir      (vec2 (cos angle) (sin angle)) ]
-    (-> this
-        (assoc :acc    (m/+ acc grav-v)
-               :angle  angle
-               :forces (m/+ forces (m/* dir (* (bool->01 fire) thrust-v))))
-        (update-phys dt))))
+(defrecord Ship [forces acc vel pos angle mass angle]
+  IObj
+  (update-obj [this {:keys [left right fire] :as input} dt ]
+    (let [{:keys [thrust-v grav-v angle-v] } ship-vals
+          rotation (* angle-v (bools->twonit left right))
+          angle    (+ angle (* dt rotation)) 
+          dir      (vec2 (cos angle) (sin angle)) ]
+      (-> this
+          (assoc :acc    (m/+ acc grav-v)
+                 :angle  angle
+                 :forces (m/+ forces (m/* dir (* (bool->01 fire) thrust-v))))
+          (update-phys dt)))
+    )
+  )
 
 (defn mk-ship []
-  (map->Ship 
-    {:forces (vec2 0)
-     :acc (vec2 0)
-     :vel (vec2 0)
-     :pos (vec2 0)
-     :mass 1
-     :angle 0 }))
+  (->
+    (map->Ship { :angle  0 }) 
+    (init-phys)))
 
 
 
