@@ -1,5 +1,6 @@
 (ns eggs.thrust
   (:require 
+    [cljs.pprint :refer [pprint]]
     [util.math :refer [cos sin]]
     [thi.ng.math.core :as m]
     [thi.ng.geom.vector :as v :refer [vec2 vec3]]))
@@ -38,7 +39,6 @@
          :vel    zero-v2
          :pos    zero-v2
          :mass   1.0))
-
 ;; TBD
 
 ; (defprotocol IPhys
@@ -53,9 +53,9 @@
 
 ;; constants
 (def ship-vals 
-  {:thrust-v 1.0
+  {:thrust-v 90.0
    :grav-v (vec2 0  -9.81 )
-   :angle-v 1.0 })
+   :angle-v 10.0 })
 
 (defrecord Ship [forces acc vel pos angle mass ]
   IObj
@@ -64,12 +64,14 @@
     (let [{:keys [thrust-v grav-v angle-v] } ship-vals
           rotation (* angle-v (bools->twonit left right))
           angle    (+ angle (* dt rotation)) 
-          dir      (vec2 (cos angle) (sin angle)) ]
-      (-> this
-          (assoc :acc    (m/+ acc grav-v)
-                 :angle  angle
-                 :forces (m/+ forces (m/* dir (* (bool->01 fire) thrust-v))))
-          (update-phys dt)))))
+          dir      (vec2 (cos angle) (sin angle)) 
+          new-ship (-> this
+                       (assoc :acc    (m/+ acc grav-v)
+                              :angle  angle
+                              :forces (m/+ forces (m/* dir (* (bool->01 fire) thrust-v))))
+                       (update-phys dt)) ]
+      new-ship
+      )))
 
 (defn mk-ship []
   (->

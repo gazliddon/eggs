@@ -8,6 +8,7 @@
     [eggs.macros :refer [with-vb]])
 
   (:require
+    [thi.ng.math.core :as m]
     [eggs.fastlines :as flines :refer [mk-line-spr-ch]]
     [eggs.thrust :refer [mk-ship] :as thrust]
 
@@ -209,9 +210,27 @@
 ;; }}}
 
 ;; {{{ events hacks
+
+(def keys-atom (atom {:left false 
+                 :right false
+                 :fire false }))
+
+(def code->key {"z" :left 
+                "x" :right
+                "m" :fire })
+
+(defn ev->key [ev]
+  (let [kv (.-key ev) ]
+    (get code->key kv)))
+
 (defn handle-key [ev]
-  (let [k (char  (first  (.-key ev)))]
-    (key->cam! k)))
+  (when-let [k (ev->key ev)]
+    (reset! keys-atom (assoc @keys-atom k true))
+    ))
+
+(defn handle-key-up [ev]
+  (when-let [k (ev->key ev)]
+      (reset! keys-atom (assoc @keys-atom k false))))
 
 (defn handle-click [ev]
   (next-cam!))
@@ -221,8 +240,10 @@
   (gev/listen o ev-type f))
 
 (defn init! []
-  (single-listen! js/window gev/EventType.KEYPRESS handle-key)
-  (single-listen! js/window gev/EventType.CLICK handle-click))
+  (do 
+    (single-listen! js/window gev/EventType.KEYPRESS handle-key)
+    (single-listen! js/window gev/EventType.KEYUP handle-key-up)
+    (single-listen! js/window gev/EventType.CLICK handle-click) ))
 
 ;;; }}}
 
@@ -410,12 +431,13 @@
 
 (defn draw-ship [{:keys [pos angle]} font shader cam]
   (do 
-    (font/start-text font shader {:u_proj (:proj cam)
-                                :u_view (:view cam)
-                                :u_model (-> mat/M44 (geom/rotate-z angle))
-                                :u_radii (vec2  0.05)
-                                :u_hardness (vec2 0.0001) })
-    (font/print-it font pos (vec4 1 1 1 1) :A) ))
+    (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z angle)) ]
+      (font/start-text font shader {:u_proj (:proj cam)
+                                    :u_view (:view cam)
+                                    :u_radii (vec2  0.05)
+                                    :u_hardness (vec2 0.0001) })
+
+      (font/print-it-mat font model (vec4 1 1 1 1) :A))))
 
 (defn update! [gl t shader]
 
@@ -426,7 +448,6 @@
   (.blendFunc gl glc/src-alpha glc/one)
 
   (let [{:keys [aspect]} (glw/update-wh! gl-window)
-
         cam-defaults (assoc cam-defaults :aspect aspect)
 
         t (/ t 3)
@@ -454,14 +475,12 @@
 
     (draw-text-stuff font-printer shader (get-text-cam aspect 100) t)
 
-    (let [input {:fire false 
-                 :left false 
-                 :right false }
+    (let [input @keys-atom
           dt (/ 1.0 60.0)
           new-ship (thrust/update-obj @ship input dt) ]
       (do 
         (reset! ship new-ship)
-        (draw-ship new-ship font-printer shader (get-ship-cam aspect 200))
+        (draw-ship new-ship font-printer shader (get-ship-cam aspect 100))
         )))
 
   (stats/end stats))

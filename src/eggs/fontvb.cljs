@@ -38,6 +38,7 @@
 
 (defprotocol IText
   (start-text [this shader unis])
+  (print-it-mat [this mat col text]) 
   (print-it [this pos col text]))
 
 (def *gl-active* (atom {}))
@@ -56,6 +57,20 @@
           (use-program! gl shader)
           (p/make-active! vb gl shader)
           (set-unis! gl @shader-atom (merge base-unis uniforms))))
+
+      
+      (print-it-mat [this model col text]
+        (let [frm  (get frames text)
+              start (:start frm)
+              num-of-verts (:num-of-verts frm) ]
+          (do 
+            (set-uni! gl @shader-atom :u_model model)  
+            (set-uni! gl @shader-atom :u_inner_color col)  
+            (set-uni! gl @shader-atom :u_outer_color col)  
+            (.drawArrays gl glc/triangles start num-of-verts)   
+            )
+          ) 
+        ) 
 
       (print-it [_ pos col text]
         (let [frm  (get frames text)
