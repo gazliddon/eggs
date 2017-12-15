@@ -310,24 +310,21 @@
 ;; }}}
 
 ;; {{{ JS Extend float array so it's comparable etc
-
 (buff-js-array js/Float32Array js-count js-nth)
 (buff-js-array js/Int32Array js-count js-nth)
 
 ;; }}}
 
 ;; {{{ Test code
-
-(def line-vdef
-  {:a_index      :int
-   :a_position0  :vec2
-   :a_position1  :vec2
-   :a_radii      :vec2
-   :a_color0     :vec4 
-   :a_color1     :vec4 })
-
 (comment
   (do 
+    (def line-vdef
+      {:a_index      :int
+       :a_position0  :vec2
+       :a_position1  :vec2
+       :a_radii      :vec2
+       :a_color0     :vec4 
+       :a_color1     :vec4 })
     (def vb (mk-vert-buffer line-vdef 100))
 
     (defn log-buffer [id]

@@ -1,8 +1,19 @@
 (ns eggs.fastlines
+  (:require-macros
+
+    [cljs.core.async.macros :refer [go go-loop ]] )
+
   (:require
+
+   [thi.ng.math.core :as m]
+    [util.vec4 :refer [vec4]]
+    [eggs.glvertbuffer :refer [mk-vert-buffer!]]
     [cljs.pprint :refer [pprint]]
     [util.misc :refer [map-keys]]
     [eggs.fontdata :refer [test-vec-font-line-strips]]
+    [eggs.shaders :refer [async-load-shader]]
+    [cljs.core.async :as async :refer [chan] ]
+    [thi.ng.geom.matrix :as mat]
     [thi.ng.dstruct.streams :as streams]
     [thi.ng.geom.vector :as v :refer [vec2 vec3]]
     [thi.ng.geom.gl.webgl.constants :as glc]))
@@ -14,11 +25,9 @@
 
 (defrecord Texture [gl w h tex-id int-format src-type src-format ]
   ITexture
-
   (make-active! [this]
     (.bindTexture gl (.-TEXTURE_2D gl) tex-id)
     this)
-
   (upload! [this array-view] 
     (let [this (make-active! this)]
       (do
@@ -153,22 +162,63 @@
   {:texture texture 
    :lines-info (:lines-info bit-map) }))
 
-(comment 
-  "vert formats now
-  x y 32 32
-  spr num 16
-  palette 16  
-  RG32UI 
-  x = x
-  y = y
-  z = sprnum
-  w = palette 
-  divisor = 6
-  print w  * verts per letter
-  "
-  {:a_pos       :vec2 
-   :a_spr       :int
-   :a_pal_flags :int })
+(def attribs {:a_pos       :vec2 
+              :a_spr       :int
+              :a_pal_flags :int })
+
+(def fast-line-shader-spec
+  {:vs-file "shaders/fastlines.vs"
+   :fs-file "shaders/line.fs"
+   :common "shaders/common.glsl"
+
+   :version 300
+
+   :varying {:v_uv       :vec2
+             :v_color    :vec4
+             :v_radius   :float 
+             :v_hardness :float}
+
+   :uniforms {:u_proj         [:mat4 mat/M44]
+              :u_view         [:mat4 mat/M44]
+              :u_model        [:mat4 mat/M44]
+              :u_hardness     [:vec2 [1.0 1.0]]
+              :u_radii        [:vec2 [1.0 1.0]]
+              :u_inner_color  :vec4
+              :u_outer_color  :vec4 
+              :u_tex          :sampler2D }
+
+   :attribs  attribs })
+
+(defprotocol ILineSprs
+  (make-line-sprs-active! [this unis])
+  (render! [this unis txt]))
+
+(def verts (repeat (* 6 40) {:a_pos (vec2 0 0)
+                             :a_spr 0
+                             :a_pal_flags 0} ))
+
+
+(def default-unis {:u_inner_color (vec4 1 1 1 1)
+                      :u_outer_color (vec4 1 1 1 1) })
+
+(defrecord LineSprs [gl shader vb]
+    ILineSprs
+    (make-line-sprs-active! [this unis]
+      )
+    (render! [this unis txt]) 
+  )
+
+(defn mk-line-spr-ch [gl]
+  (let [{:keys [texture lines-info]} (mk-lines-as-texture gl)
+        tex-id (:tex-id texture ) 
+        vb (mk-vert-buffer! gl attribs verts)  ]
+    (go
+      (let [shader (<! (async-load-shader gl fast-line-shader-spec))]
+        (do
+          (->LineSprs gl shader vb))
+        ))))
+
+
 
 
 

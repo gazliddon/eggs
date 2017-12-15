@@ -8,7 +8,8 @@
     [eggs.macros :refer [with-vb]])
 
   (:require
-    [eggs.fastlines :as flines]
+    [eggs.fastlines :as flines :refer [mk-line-spr-ch]]
+
     [eggs.lines :refer [add-lines mk-line-verts add-line-v]]
     [figwheel.client :as fwc]
     [thi.ng.geom.cuboid :refer [cuboid]]
@@ -436,10 +437,14 @@
 
 (go 
   (init!)
+  ;; TODO need something to load in resources
 
   (def shader-ch (async-load-shader gl line-shader-spec) )
 
-  (let [shader (async/<! shader-ch)]
+  (def line-spr-ch (mk-line-spr-ch gl))
+
+  (let [shader (async/<! shader-ch)
+        line-spr (async/<! line-spr-ch) ]
     (defonce doit 
       (anim/animate (fn [t]
                       (update! gl t shader))))))

@@ -1,9 +1,7 @@
-
 out vec4 out_col;
 
 void main() {
 	float d;
-
 	vec2 uv = v_uv;
 
 	float range = v_radius * 2.0f + 1.0;
@@ -17,7 +15,6 @@ void main() {
 		d  =  distance( uv, vec2(1.0,0.0) );
 	} else {
 	    // main body of capsule
-	    
 	    d =abs( uv.t ) ;
 	}
 

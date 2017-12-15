@@ -11,7 +11,7 @@
 
 (defrecord Verts [base verts]
   ILines
-  (set-base [this new-base]
+   (set-base [this new-base]
     (assoc this :base new-base))
 
   (add-line-v [this new-v]
