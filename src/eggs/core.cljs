@@ -8,7 +8,7 @@
     [eggs.macros :refer [with-vb]])
 
   (:require
-    [thi.ng.math.core :as m]
+    [thi.ng.math.core :as m :refer [PI]]
     [eggs.fastlines :as flines :refer [mk-line-spr-ch]]
     [eggs.thrust :refer [mk-ship] :as thrust]
 
@@ -433,7 +433,7 @@
 
 (defn draw-ship [{:keys [pos angle]} font shader cam]
   (do 
-    (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z angle)) ]
+    (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z (- 0  (+ PI angle )))) ]
       (font/start-text font shader {:u_proj (:proj cam)
                                     :u_view (:view cam)
                                     :u_radii (vec2  0.09)
@@ -481,13 +481,12 @@
 
     (let [input @keys-atom
           dt (/ 1.0 60.0)
-          new-ship (thrust/update-obj @ship input dt) ]
+          new-ship (if (:reset @keys-atom)
+                     (mk-ship) 
+                     (thrust/update-obj @ship input dt)) ]
       (do 
-        (if (:reset @keys-atom )
-          (reset! ship (mk-ship))
-          (reset! ship new-ship))
-        (draw-ship new-ship font-printer shader (get-ship-cam aspect 50))
-        )))
+        (reset! ship new-ship)
+        (draw-ship new-ship font-printer shader (get-ship-cam aspect 50)))))
 
   (stats/end stats))
 

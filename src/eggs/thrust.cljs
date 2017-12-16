@@ -64,11 +64,11 @@
     (let [{:keys [thrust-v grav-v angle-v] } ship-vals
           rotation (* angle-v (bools->twonit left right))
           angle    (+ angle (* dt rotation)) 
-          dir      (vec2 (cos angle) (sin angle)) 
+          dir      (vec2 (sin angle) (cos angle)) 
           new-ship (-> this
                        (assoc :acc    (m/+ acc grav-v)
                               :angle  angle
-                              :forces (m/+ forces (m/* dir (* (bool->01 fire) thrust-v))))
+                              :forces (m/+ forces (m/* dir (vec2  (* (bool->01 fire) thrust-v)))))
                        (update-phys dt)) ]
       new-ship
       )))
