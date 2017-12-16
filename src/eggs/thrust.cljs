@@ -21,7 +21,7 @@
 (defn update-phys [{:keys [forces mass vel pos acc] :as this} dt ]
   (let [dt-v2   (vec2 dt)
         mass-v2 (vec2 mass)
-        acc     (m/+ acc (m/* forces mass-v2))
+        acc     (m/+ acc (m/div forces mass-v2))
         acc-dt  (m/* acc dt-v2)
         pos     (m/+ pos (m/* dt-v2 vel) (m/* acc-dt dt-v2 ))
         vel     (m/+ vel acc-dt ) ]
@@ -38,7 +38,7 @@
          :acc    zero-v2
          :vel    zero-v2
          :pos    zero-v2
-         :mass   1.0))
+         :mass   0.1))
 ;; TBD
 
 ; (defprotocol IPhys
@@ -53,7 +53,7 @@
 
 ;; constants
 (def ship-vals 
-  {:thrust-v 90.0
+  {:thrust-v 4.0
    :grav-v (vec2 0  -9.81 )
    :angle-v 10.0 })
 

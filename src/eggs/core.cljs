@@ -437,11 +437,11 @@
       (font/start-text font shader {:u_proj (:proj cam)
                                     :u_view (:view cam)
                                     :u_radii (vec2  0.09)
-                                    :u_inner_color (vec4 1 1 1 0.2)
-                                    :u_outer_color (vec4 1 1 1 0.2)
+                                    :u_inner_color (vec4 1 1 1 1)
+                                    :u_outer_color (vec4 1 1 1 1)
                                     :u_hardness (vec2 0.0000001) })
 
-      (font/print-it-mat font model (vec4 1 1 1 1) :A))))
+      (font/print-it-mat font model (vec4 0 0 1 0.8) :A))))
 
 (defn update! [gl t shader]
 
