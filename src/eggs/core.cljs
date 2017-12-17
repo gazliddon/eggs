@@ -8,9 +8,10 @@
     [eggs.macros :refer [with-vb]])
 
   (:require
+    [eggs.objs :as objs]
     [thi.ng.math.core :as m :refer [PI]]
     [eggs.fastlines :as flines :refer [mk-line-spr-ch]]
-    [eggs.thrust :refer [mk-ship] :as thrust]
+    [eggs.thrust :as thrust]
 
     [eggs.lines :refer [add-lines mk-line-verts add-line-v]]
     [figwheel.client :as fwc]
@@ -227,8 +228,7 @@
 
 (defn handle-key [ev]
   (when-let [k (ev->key ev)]
-    (reset! keys-atom (assoc @keys-atom k true))
-    ))
+    (reset! keys-atom (assoc @keys-atom k true))))
 
 (defn handle-key-up [ev]
   (when-let [k (ev->key ev)]
@@ -241,12 +241,19 @@
   (gev/removeAll o ev-type)
   (gev/listen o ev-type f))
 
+
+(def objects-a (atom (objs/mk-objs)))
+
 (defn init! []
   (do 
     (single-listen! js/window gev/EventType.KEYPRESS handle-key)
     (single-listen! js/window gev/EventType.KEYUP handle-key-up)
-    (single-listen! js/window gev/EventType.CLICK handle-click) ))
+    (single-listen! js/window gev/EventType.CLICK handle-click) 
 
+    (->>
+      @objects-a
+      (thrust/create-objs)
+      (reset! objects-a))))
 ;;; }}}
 
 ;; {{{ Sphere obj 
@@ -402,8 +409,6 @@
   {:view (scale (vec3 0.03 0.03 1))
    :proj (scale (vec3 1.0 ( - 0 aspect ) 1.0))})
 
-
-
 (defn draw-text-stuff [font shader cam t]
   (let [cfun (fn [o s]
                (let [t (* s (+ o t))]
@@ -424,24 +429,13 @@
   (font/print-it font (vec2 -20 -10) (cfun 2 8) :Z)  
   (font/print-it font (vec2 -15 -10) (vec4 (cos-01 t 0 10)(cos-01 t 0 10)(cos-01 t 0 10)(cos-01 t 0 10)) :exclamation )))
 
+;; {{{  Objects!
 
-(def ship (atom (mk-ship) ))
 
-(defn get-ship-cam [aspect w]
-  {:view (scale (vec3 (/ 1 w) (/ 1 w) 1))
-   :proj (scale (vec3 1.0 aspect 1.0))})
 
-(defn draw-ship [{:keys [pos angle]} font shader cam]
-  (do 
-    (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z (- 0  (+ PI angle )))) ]
-      (font/start-text font shader {:u_proj (:proj cam)
-                                    :u_view (:view cam)
-                                    :u_radii (vec2  0.09)
-                                    :u_inner_color (vec4 1 1 1 1)
-                                    :u_outer_color (vec4 1 1 1 1)
-                                    :u_hardness (vec2 0.0000001) })
 
-      (font/print-it-mat font model (vec4 0 0 1 0.8) :A))))
+
+;;}}}
 
 (defn update! [gl t shader]
 
@@ -453,6 +447,7 @@
 
   (let [{:keys [aspect]} (glw/update-wh! gl-window)
         cam-defaults (assoc cam-defaults :aspect aspect)
+        dt (/ 1.0 60.0)
 
         t (/ t 3)
         r (cos-01 t 0 3)
@@ -479,14 +474,14 @@
 
     (draw-text-stuff font-printer shader (get-text-cam aspect 100) t)
 
-    (let [input @keys-atom
-          dt (/ 1.0 60.0)
-          new-ship (if (:reset @keys-atom)
-                     (mk-ship) 
-                     (thrust/update-obj @ship input dt)) ]
-      (do 
-        (reset! ship new-ship)
-        (draw-ship new-ship font-printer shader (get-ship-cam aspect 50)))))
+    (->>
+      (thrust/update-objs @objects-a dt @keys-atom )
+      (reset! objects-a))
+
+    (thrust/draw-objs @objects-a {:gl gl 
+                                  :shader shader 
+                                  :font font-printer})
+    )
 
   (stats/end stats))
 
