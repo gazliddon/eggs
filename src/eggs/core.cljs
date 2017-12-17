@@ -436,6 +436,9 @@
 
 
 ;;}}}
+  (defn get-ship-cam [aspect w]
+    {:view (scale (vec3 (/ 1 w) (/ 1 w) 1))
+     :proj (scale (vec3 1.0 aspect 1.0))})
 
 (defn update! [gl t shader]
 
@@ -474,14 +477,12 @@
 
     (draw-text-stuff font-printer shader (get-text-cam aspect 100) t)
 
-    (->>
-      (thrust/update-objs @objects-a dt @keys-atom )
-      (reset! objects-a))
+    (swap! objects-a thrust/update-objs dt @keys-atom)
 
     (thrust/draw-objs @objects-a {:gl gl 
                                   :shader shader 
-                                  :font font-printer})
-    )
+                                  :font font-printer
+                                  :cam (get-ship-cam aspect 100) }))
 
   (stats/end stats))
 

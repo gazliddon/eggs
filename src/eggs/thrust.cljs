@@ -1,10 +1,20 @@
 (ns eggs.thrust
   (:require 
+    [thi.ng.math.core :as m :refer [PI]]
+    [thi.ng.geom.vector :as v :refer [vec2 vec3]]  
+    [thi.ng.geom.core :as g]
+    [thi.ng.geom.matrix :as mat]
+    [thi.ng.geom.core :as geom]
+
+    [eggs.fontvb :as font ]
     [eggs.objs :as objs ]
+
     [cljs.pprint :refer [pprint]]
+
+    [util.vec4 :refer [vec4]]
     [util.math :refer [cos sin]]
-    [thi.ng.math.core :as m]
-    [thi.ng.geom.vector :as v :refer [vec2 vec3]]))
+    [util.misc :refer [map-keys]]
+    ))
 
 ;; {{{ Generic
 (defn bool->01 
@@ -50,32 +60,44 @@
    :grav-v (vec2 0  -9.81 )
    :angle-v 10.0 })
 
-
 (declare mk-ship)
+
+(defn get-font-u [cam]
+  {:u_proj (:proj cam)
+   :u_view (:view cam)
+   :u_radii (vec2  0.09)
+   :u_inner_color (vec4 1 1 1 1)
+   :u_outer_color (vec4 1 1 1 1)
+   :u_hardness (vec2 0.0000001) } )
 
 (defrecord Ship [forces acc vel pos angle mass id]
   objs/IObj
   
-  (draw-obj [this r]
-    )
+  (draw-obj [this {:keys [font shader cam] :as r}]
+    (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z (- 0  (+ PI angle )))) ]
+      (do 
+        (font/start-text font shader (get-font-u cam))  
+        (font/print-it-mat font model (vec4 0.2 0.2 1 0.8) :A) )))
 
   (get-id [this] id)
 
-  (update-obj [this dt {:keys [left right fire] :as input}]
-
-    (if (:reset input)
+  (update-obj [this dt {:keys [left right fire reset]  :as input}]
+    (if reset
       (mk-ship id)
-      
+
       (let [{:keys [thrust-v grav-v angle-v] } ship-vals
-          rotation (* angle-v (bools->twonit left right))
-          angle    (+ angle (* dt rotation)) 
-          dir      (vec2 (sin angle) (cos angle)) 
-          new-ship (-> this
-                       (assoc :acc    (m/+ acc grav-v)
-                              :angle  angle
-                              :forces (m/+ forces (m/* dir (vec2  (* (bool->01 fire) thrust-v)))))
-                       (update-phys dt)) ]
-      new-ship))))
+            rotation (* angle-v (bools->twonit left right))
+            angle    (+ angle (* dt rotation)) 
+            dir      (vec2 (sin angle) (cos angle)) 
+            thrust   (* thrust-v (bool->01 fire)) 
+            forces   (m/+ forces (m/* dir thrust)) ]
+
+        (-> this
+            (assoc :acc    (m/+ acc grav-v)
+                   :angle  angle
+                   :forces forces)
+
+            (update-phys dt))))))
 
 (defn mk-ship [id]
   (->
@@ -83,12 +105,24 @@
     (init-phys)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn mk-obj [id]
+  (reify 
+    objs/IObj
+    (get-id [_]
+      id)
+    (update-obj [this dt input]
+      this)
+
+    (draw-obj [this _]
+      )))
+
 (defn mk-particle [id]
-  {:id id})
+  (mk-obj id))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn mk-link [id id-a id-b]
-  {:id id})
+  (mk-obj id))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-objs [objs]
@@ -103,7 +137,7 @@
 (defn update-objs-of-type [objs dt typ input]
   (if-let [objs-of-type (get objs typ)]
     (assoc objs typ
-           (map #(objs/update-obj % dt input) objs-of-type))
+           (map-keys #(objs/update-obj % dt input) objs-of-type))
     objs))
 
 (defn update-objs [objs dt input]
@@ -113,53 +147,8 @@
 
 (defn draw-objs [objs r]
   (doseq [[t objs] objs]
-    (doseq [o objs]
+    (doseq [[k o] objs]
       (objs/draw-obj o r))))
 
-(comment 
-  (let [input @keys-atom
-        dt (/ 1.0 60.0)
-        new-ship (if (:reset @keys-atom)
-                   (mk-ship) 
-                   (thrust/update-obj @ship input dt)) ]
-    (do 
-      (reset! ship new-ship)
-      (draw-ship new-ship font-printer shader (get-ship-cam aspect 50))))
-
-  (def ship (atom (mk-ship) ))
-
-  (defn get-ship-cam [aspect w]
-    {:view (scale (vec3 (/ 1 w) (/ 1 w) 1))
-     :proj (scale (vec3 1.0 aspect 1.0))})
-
-  (defn draw-ship [{:keys [pos angle]} font shader cam]
-    (do 
-      (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z (- 0  (+ PI angle )))) ]
-        (font/start-text font shader {:u_proj (:proj cam)
-                                      :u_view (:view cam)
-                                      :u_radii (vec2  0.09)
-                                      :u_inner_color (vec4 1 1 1 1)
-                                      :u_outer_color (vec4 1 1 1 1)
-                                      :u_hardness (vec2 0.0000001) })
-
-        (font/print-it-mat font model (vec4 0.2 0.2 1 0.8) :A))))
-
-  (def objs-a (atom (objs/mk-objs)))
-
-  (defn ship-it  []
-    (let [ship (mk-ship)
-          blob (mk-blob) ]
-      (-> @objs-a
-          (add-object :ship ship)
-          (add-object :blob blob)
-          (add-object :link (mk-link (objs/get-id ship)
-                                     (objs/get-id blob)))
-
-          )
-      )
-    )
-
-
-  )
 
 
