@@ -62,21 +62,13 @@
 
 (declare mk-ship)
 
-(defn get-font-u [cam]
-  {:u_proj (:proj cam)
-   :u_view (:view cam)
-   :u_radii (vec2  0.09)
-   :u_inner_color (vec4 1 1 1 1)
-   :u_outer_color (vec4 1 1 1 1)
-   :u_hardness (vec2 0.0000001) } )
 
 (defrecord Ship [forces acc vel pos angle mass id]
   objs/IObj
   
-  (draw-obj [this {:keys [font shader cam] :as r}]
+  (draw-obj [this {:keys [font] :as r}]
     (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z (- 0  (+ PI angle )))) ]
       (do 
-        (font/start-text font shader (get-font-u cam))  
         (font/print-it-mat font model (vec4 0.2 0.2 1 0.8) :A) )))
 
   (get-id [this] id)
@@ -106,23 +98,33 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn mk-obj [id]
-  (reify 
-    objs/IObj
-    (get-id [_]
-      id)
-    (update-obj [this dt input]
-      this)
+(defn xlate [pos]
+  (-> mat/M44 (g/translate pos) )
+  )
 
-    (draw-obj [this _]
-      )))
+(defrecord GenericObj [pos id draw frame col]
+  objs/IObj
+
+  (get-id [_]
+    id)
+
+  (update-obj [this dt input]
+    this)
+
+  (draw-obj [this {:keys [font]}]
+    (when draw 
+      (font/print-it-mat font (xlate pos) col frame))))
 
 (defn mk-particle [id]
-  (mk-obj id))
+  (map->GenericObj {:id id 
+                    :pos (vec2 0 0)
+                    :draw true 
+                    :frame :O 
+                    :col (vec4 1 0 0 0.2) }))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn mk-link [id id-a id-b]
-  (mk-obj id))
+  (map->GenericObj {:id id :pos (vec2 0 0)}) )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-objs [objs]
@@ -145,10 +147,19 @@
     (update-objs-of-type dt :ships input)
     (update-objs-of-type dt :particles input)))
 
-(defn draw-objs [objs r]
-  (doseq [[t objs] objs]
-    (doseq [[k o] objs]
-      (objs/draw-obj o r))))
+(defn get-font-u [cam]
+  {:u_proj (:proj cam)
+   :u_view (:view cam)
+   :u_radii (vec2  0.09)
+   :u_inner_color (vec4 1 1 1 1)
+   :u_outer_color (vec4 1 1 1 1)
+   :u_hardness (vec2 0.0000001) } )
 
+(defn draw-objs [objs {:keys [shader cam font] :as r}]
+  (do 
+    (font/start-text font shader (get-font-u cam))  
+    (doseq [[t objs] objs]
+      (doseq [[k o] objs]
+        (objs/draw-obj o r)))))
 
 
