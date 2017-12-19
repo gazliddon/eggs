@@ -44,12 +44,14 @@
            :pos pos)))
 
 (defn init-phys [this]
-  (assoc this 
-         :forces zero-v2
-         :acc    zero-v2
-         :vel    zero-v2
-         :pos    zero-v2
-         :mass   0.1))
+  (let [mass 0.1]
+    (assoc this 
+           :forces zero-v2
+           :acc    zero-v2
+           :vel    zero-v2
+           :pos    zero-v2
+           :mass   mass
+           :invmass (/ 1.0 mass))))
 
 ;; }}}
 
@@ -63,7 +65,7 @@
 (declare mk-ship)
 
 
-(defrecord Ship [forces acc vel pos angle mass id]
+(defrecord Ship [forces acc vel pos angle mass id invmass]
   objs/IObj
   
   (draw-obj [this {:keys [font] :as r}]
@@ -93,7 +95,7 @@
 
 (defn mk-ship [id]
   (->
-    (map->Ship { :angle 0 :id id}) 
+    (map->Ship { :angle 0 :id id }) 
     (init-phys)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -115,26 +117,83 @@
     (when draw 
       (font/print-it-mat font (xlate pos) col frame))))
 
+(defrecord Particle [pos oldpos invmass id draw frame col]
+  objs/IObj
+  (get-id [_]
+    id)
+
+  (update-obj [this dt _]
+    (let [dt2 (* dt dt)
+          accel (vec2 0 -9.81)
+          new-pos (m/+ pos (m/- pos oldpos) (m/* accel dt2)) ]
+      (pprint this)
+      (assoc this 
+             :pos new-pos
+             :oldpos pos)) )
+
+  (draw-obj [this {:keys [font]}]
+    (when draw 
+      (font/print-it-mat font (xlate pos) col frame))))
+
 (defn mk-particle [id]
-  (map->GenericObj {:id id 
+  (map->Particle {:id id 
                     :pos (vec2 0 0)
+                    :oldpos (vec2 0 0.1)
                     :draw true 
                     :frame :O 
                     :col (vec4 1 0 0 0.2) }))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defrecord Link [obj-a obj-b col id rest-length]
+  )
+
 (defn mk-link [id id-a id-b]
-  (map->GenericObj {:id id :pos (vec2 0 0)}) )
+  (map->GenericObj {:id id 
+                    :pos (vec2 0 0) 
+                    :col (vec4 0 1 0 1)
+                    :obj-a id-a
+                    :obj-b id-b 
+                    :rest-length 4 }) )
+
+(defn update-link [objs {:keys [obj-a obj-b rest-length]  :as link } dt]
+  (let [ship (get-in objs obj-a)
+        orb (get-in objs obj-b) ]
+
+    (if (and ship orb)
+      (let [rl-2 (* rest-length rest-length)
+            delta (m/- (:pos ship) (:pos orb))
+            delta-2 (m/* delta delta)
+            orb-inv-mass (:invmass orb)
+            ship-inv-mass (:invmass ship)              
+            invmass (+ orb-inv-mass ship-inv-mass)
+            diff (m/- (vec2 0.5) (m/div (vec2 rl-2 ) (m/+ delta-2 rl-2)))
+            diff (m/+ diff (m/div (vec2 -2) invmass))
+            delta (* delta diff) 
+            ship-pos (m/+ (:pos ship) (m/* delta ship-inv-mass))
+            orb-pos (m/+ (:pos orb) (m/* delta orb-inv-mass))]
+        (->
+          objs
+          (update-in obj-a assoc 
+                     :pos ship-pos)
+          (update-in obj-b assoc 
+                     :pos orb-pos)))
+      objs )
+    )
+  )
+
+(defn update-links [objs]
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-objs [objs]
   (let [ship (mk-ship :ship-o)
         particle (mk-particle :particle-o)
-        link (mk-link :link-o :ship-o :particle-o) ]
+        link (mk-link :link-o [:ships :ship-o] [:particles :particle-o]) ]
     (-> objs
         (objs/add-obj :ships ship)
-        (objs/add-obj :objs particle)
-        (objs/add-obj :links particle))))
+        (objs/add-obj :particles particle)
+        (objs/add-obj :links link))))
 
 (defn update-objs-of-type [objs dt typ input]
   (if-let [objs-of-type (get objs typ)]
