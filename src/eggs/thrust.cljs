@@ -44,7 +44,7 @@
            :pos pos)))
 
 (defn init-phys [this]
-  (let [mass 0.1]
+  (let [mass 1]
     (assoc this 
            :forces zero-v2
            :acc    zero-v2
@@ -58,20 +58,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; constants
 (def ship-vals 
-  {:thrust-v 4.0
+  {:thrust-v 40.0
    :grav-v (vec2 0  -9.81 )
    :angle-v 10.0 })
 
 (declare mk-ship)
 
 
-(defrecord Ship [forces acc vel pos angle mass id invmass]
+(defrecord Ship [forces acc vel pos angle mass id invmass col]
   objs/IObj
   
   (draw-obj [this {:keys [font] :as r}]
     (let [ model (-> mat/M44 (g/translate pos) (geom/rotate-z (- 0  (+ PI angle )))) ]
       (do 
-        (font/print-it-mat font model (vec4 0.2 0.2 1 0.8) :A) )))
+        (font/print-it-mat font model col :A) )))
 
   (get-id [this] id)
 
@@ -95,7 +95,7 @@
 
 (defn mk-ship [id]
   (->
-    (map->Ship { :angle 0 :id id }) 
+    (map->Ship { :angle 0 :id id :col (vec4 0 1 0 1)}) 
     (init-phys)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,8 +125,10 @@
   (update-obj [this dt _]
     (let [dt2 (* dt dt)
           accel (vec2 0 -9.81)
-          new-pos (m/+ pos (m/- pos oldpos) (m/* accel dt2)) ]
-      (pprint this)
+          last-vel (m/- pos oldpos) 
+          this-vel (m/* accel dt2) 
+          new-pos (m/+ pos last-vel this-vel) ]
+
       (assoc this 
              :pos new-pos
              :oldpos pos)) )
@@ -136,16 +138,60 @@
       (font/print-it-mat font (xlate pos) col frame))))
 
 (defn mk-particle [id]
-  (map->Particle {:id id 
+  (let [mass 1]
+   (map->Particle {:id id 
                     :pos (vec2 0 0)
-                    :oldpos (vec2 0 0.1)
+                    :oldpos (vec2 0.1 -0.3)
                     :draw true 
                     :frame :O 
-                    :col (vec4 1 0 0 0.2) }))
+                    :invmass (/ 1.0 mass)
+                    :mass mass
+                    :col (vec4 1 0 0 1) }) ))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Link [obj-a obj-b col id rest-length]
+  )
+
+
+(comment
+
+  (let [m-12 (vec2 (* rest-length rest-length))
+        ship-pos (:pos ship)
+        orb-pos (:pos orb)
+        delta (m/- ship-pos orb-pos)
+        delta-2 (m/* delta delta)
+        orb-imass (:invmass orb)
+        ship-imass (:invmass ship)              
+        invmass (+ orb-imass ship-imass)
+        diff (m/- (m/div m-12 (m/+ delta-2 m-12)) 0.5 )
+        diff (m/+ diff 
+                  (m/div (vec2 -2) invmass))
+
+        ; _ (pprint (str "diff " diff))
+        ; _ (pprint (str "orb-imass " orb-imass))
+        ; _ (pprint (str "delta " delta))
+        ; _ (pprint (str "ship-imass " ship-imass))
+        ; _ (pprint (str "orb-pos " orb-pos))
+        ; _ (pprint (str "ship-pos " ship-pos))
+
+        delta (m/* delta diff) 
+        orb-pos (m/+ orb-pos (m/* delta orb-imass))
+        ship-pos (m/- ship-pos (m/* delta ship-imass)) 
+
+        ; _ (pprint (str "diff " diff))
+        ; _ (pprint (str "op np " (:pos orb) orb-pos ))
+
+        new-objs (->
+                   objs
+                   ; (update-in obj-a assoc :pos ship-pos)
+                   (update-in obj-b assoc :pos orb-pos)
+                   )
+        ]
+
+    new-objs)
   )
 
 (defn mk-link [id id-a id-b]
@@ -154,36 +200,33 @@
                     :col (vec4 0 1 0 1)
                     :obj-a id-a
                     :obj-b id-b 
-                    :rest-length 4 }) )
+                    :rest-length 40 }) )
 
-(defn update-link [objs {:keys [obj-a obj-b rest-length]  :as link } dt]
+(defn update-link [{:keys [obj-a obj-b rest-length]  :as link } dt objs]
   (let [ship (get-in objs obj-a)
         orb (get-in objs obj-b) ]
-
     (if (and ship orb)
-      (let [rl-2 (* rest-length rest-length)
-            delta (m/- (:pos ship) (:pos orb))
-            delta-2 (m/* delta delta)
-            orb-inv-mass (:invmass orb)
-            ship-inv-mass (:invmass ship)              
-            invmass (+ orb-inv-mass ship-inv-mass)
-            diff (m/- (vec2 0.5) (m/div (vec2 rl-2 ) (m/+ delta-2 rl-2)))
-            diff (m/+ diff (m/div (vec2 -2) invmass))
-            delta (* delta diff) 
-            ship-pos (m/+ (:pos ship) (m/* delta ship-inv-mass))
-            orb-pos (m/+ (:pos orb) (m/* delta orb-inv-mass))]
-        (->
-          objs
-          (update-in obj-a assoc 
-                     :pos ship-pos)
-          (update-in obj-b assoc 
-                     :pos orb-pos)))
+      (let [S (:pos ship)
+            O (:pos orb)
+            diff (m/- O S)
+            length (g/dist S O)
+            new-o (m/+ S (m/* diff (/ rest-length length))) ]
+        (-> objs 
+            (update-in obj-b assoc :pos new-o)))
       objs )
     )
   )
 
-(defn update-links [objs]
-  )
+
+(defn update-links [{:keys [links] :as objs} dt]
+  (if links 
+    (do 
+      (reduce-kv (fn [acc id link] 
+                   (update-link link dt objs)
+                   )
+                 objs links)
+      )
+    objs))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-objs [objs]
@@ -204,15 +247,16 @@
 (defn update-objs [objs dt input]
   (-> objs
     (update-objs-of-type dt :ships input)
-    (update-objs-of-type dt :particles input)))
+    (update-objs-of-type dt :particles input)
+    (update-links dt)))
 
 (defn get-font-u [cam]
   {:u_proj (:proj cam)
    :u_view (:view cam)
-   :u_radii (vec2  0.09)
+   :u_radii (vec2  0.05)
    :u_inner_color (vec4 1 1 1 1)
    :u_outer_color (vec4 1 1 1 1)
-   :u_hardness (vec2 0.0000001) } )
+   :u_hardness (vec2 0.1) } )
 
 (defn draw-objs [objs {:keys [shader cam font] :as r}]
   (do 
