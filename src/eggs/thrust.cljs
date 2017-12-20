@@ -143,7 +143,7 @@
                     :pos (vec2 0 0)
                     :oldpos (vec2 0.1 -0.3)
                     :draw true 
-                    :frame :O 
+                    :frame :0
                     :invmass (/ 1.0 mass)
                     :mass mass
                     :col (vec4 1 0 0 1) }) ))
